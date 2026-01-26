@@ -2,7 +2,10 @@
   "applewin": {
     "name": "AppleWin",
     "executable": "D:\\OneDrive\\Software\\Emulation\\Emulators\\Apple II\\Emulators\\AppleWin1.30.20.0\\AppleWin-x64.exe",
-    "close_on_launch": "others",
+    "close_on_launch": {
+      "close_other_instances": true,
+      "close_other_emulators": true
+    },
     "arguments": [
       {
         "name": "model",
@@ -121,7 +124,10 @@
   "atari2600": {
     "name": "Stella",
     "executable": "D:\\OneDrive\\Software\\Emulation\\Emulators\\Atari2600\\Atari 2600.exe",
-    "close_on_launch": "others",
+    "close_on_launch": {
+      "close_other_instances": true,
+      "close_other_emulators": true
+    },
     "arguments": [
       {
         "name": "fullscreen",
@@ -142,7 +148,10 @@
   "snes9x": {
     "name": "SNES9x",
     "executable": "D:\\OneDrive\\Software\\Emulation\\Emulators\\Super Nintendo\\Super Nintendo.exe",
-    "close_on_launch": "others",
+    "close_on_launch": {
+      "close_other_instances": true,
+      "close_other_emulators": true
+    },
     "arguments": [
       {
         "name": "rom_file",
@@ -163,7 +172,10 @@
   "classic99": {
     "name": "Classic99",
     "executable": "D:\\OneDrive\\Software\\Emulation\\Emulators\\classic99\\classic99.exe",
-    "close_on_launch": "others",
+    "close_on_launch": {
+      "close_other_instances": true,
+      "close_other_emulators": true
+    },
     "arguments": [
       {
         "name": "rom_file",
@@ -184,7 +196,10 @@
   "vice": {
     "name": "Vice (Commodore 64)",
     "executable": "D:\\OneDrive\\Software\\Emulation\\Emulators\\GTK3VICE-3.5-win64\\bin\\x64sc.exe",
-    "close_on_launch": "others",
+    "close_on_launch": {
+      "close_other_instances": true,
+      "close_other_emulators": true
+    },
     "arguments": [
       {
         "name": "fullscreen",
@@ -205,7 +220,10 @@
   "trs80gp": {
     "name": "TRS-80 GP",
     "executable": "D:\\OneDrive\\Software\\Emulation\\Emulators\\TRS80\\trs80gp.exe",
-    "close_on_launch": "others",
+    "close_on_launch": {
+      "close_other_instances": true,
+      "close_other_emulators": true
+    },
     "arguments": [
       {
         "name": "rom_file",

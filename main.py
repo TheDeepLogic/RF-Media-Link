@@ -13,6 +13,8 @@ import threading
 import sys
 import msvcrt
 import psutil
+import ctypes
+from ctypes import wintypes
 
 # ---- Console colors ----
 COLOR_RESET = "\033[0m"
@@ -175,16 +177,107 @@ def terminate_other_emulators(emulator_id: str, emulators: dict) -> int:
     """
     total_terminated = 0
     
+    # First, get list of what's actually running to avoid unnecessary lookups
+    running_processes = {}
+    try:
+        for proc in psutil.process_iter(['pid', 'name']):
+            try:
+                running_processes[proc.info['name'].lower()] = proc
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+    except Exception as e:
+        print(f"Error scanning processes: {e}")
+        return 0
+    
+    # Only try to terminate what's actually running
     for other_id, other_def in emulators.items():
         if other_id == emulator_id:
             continue
         
         executable = other_def.get("executable", "")
         if executable and os.path.exists(executable):
-            terminated = terminate_emulator_instances(executable)
-            total_terminated += terminated
+            exe_name = get_emulator_executable_name(executable)
+            if exe_name in running_processes:
+                # Only terminate if we found it running
+                proc = running_processes[exe_name]
+                try:
+                    proc.terminate()
+                    try:
+                        proc.wait(timeout=3)
+                    except psutil.TimeoutExpired:
+                        proc.kill()
+                        proc.wait(timeout=3)
+                    total_terminated += 1
+                    print(color_text(f"  Terminated {exe_name} (PID {proc.pid})", COLOR_YELLOW))
+                except Exception as e:
+                    print(f"  Warning: Could not terminate process: {e}")
     
     return total_terminated
+
+
+# ---- Focus Handling (Windows) ----
+def _enum_visible_windows_for_pid(pid: int) -> list:
+    """Return visible top-level windows for a process id (Windows only)."""
+    hwnds = []
+    try:
+        user32 = ctypes.windll.user32
+
+        @ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+        def callback(hwnd, _):
+            try:
+                proc_id = wintypes.DWORD()
+                user32.GetWindowThreadProcessId(hwnd, ctypes.byref(proc_id))
+                if proc_id.value == pid and user32.IsWindowVisible(hwnd):
+                    hwnds.append(hwnd)
+            except Exception:
+                pass
+            return True
+
+        user32.EnumWindows(callback, 0)
+    except Exception:
+        return []
+    return hwnds
+
+
+def focus_emulator_window(executable_path: str, launch_time: float, timeout: float = 5.0) -> bool:
+    """Bring the newly launched emulator window to the foreground."""
+    if os.name != "nt":
+        return False
+
+    exe_name = get_emulator_executable_name(executable_path)
+    deadline = time.time() + timeout
+
+    while time.time() < deadline:
+        for proc in psutil.process_iter(['pid', 'name', 'create_time']):
+            try:
+                if not proc.info.get('name'):
+                    continue
+
+                if proc.info['name'].lower() != exe_name:
+                    continue
+
+                # Prefer processes started at or after the launch time
+                if proc.info.get('create_time') and proc.info['create_time'] + 0.1 < launch_time:
+                    continue
+
+                hwnds = _enum_visible_windows_for_pid(proc.info['pid'])
+                if not hwnds:
+                    continue
+
+                hwnd = hwnds[0]
+                try:
+                    user32 = ctypes.windll.user32
+                    user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+                    user32.SetForegroundWindow(hwnd)
+                    return True
+                except Exception:
+                    return False
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                continue
+
+        time.sleep(0.2)
+
+    return False
 
 
 def ask_add_to_catalog(uid: str) -> bool:
@@ -574,18 +667,28 @@ def execute_action(action, emulators: dict = None):
                 return
             
             # Handle close_on_launch setting
-            close_on_launch = emu_def.get("close_on_launch", "others")
+            close_on_launch = emu_def.get("close_on_launch", {"close_other_instances": False, "close_other_emulators": True})
             
-            if close_on_launch == "same":
-                # Close any existing instances of THIS emulator
+            # Support both old string format and new object format
+            if isinstance(close_on_launch, str):
+                # Legacy string format
+                if close_on_launch == "same":
+                    close_on_launch = {"close_other_instances": True, "close_other_emulators": False}
+                elif close_on_launch == "others":
+                    close_on_launch = {"close_other_instances": False, "close_other_emulators": True}
+                else:  # "none"
+                    close_on_launch = {"close_other_instances": False, "close_other_emulators": False}
+            
+            # Handle new object format
+            close_other_instances = close_on_launch.get("close_other_instances", False)
+            close_other_emulators = close_on_launch.get("close_other_emulators", True)
+            
+            # PRIORITY: Kill same-emulator instances FIRST (synchronously) - this prevents conflicts
+            if close_other_instances:
                 print(f"Closing existing instances of {emu_def.get('name', emu_id)}...")
                 terminate_emulator_instances(executable)
-            elif close_on_launch == "others":
-                # Close all OTHER emulators
-                print(f"Closing other emulator instances...")
-                terminate_other_emulators(emu_id, emulators)
-            # If close_on_launch == "none", don't close anything
             
+            # Then launch the new instance immediately (don't wait for other emulators to close)
             # Build command line arguments
             executable_quoted = f'"{executable}"'  # Always quote executable
             cmd_parts = [executable_quoted]
@@ -619,8 +722,21 @@ def execute_action(action, emulators: dict = None):
             
             print(color_text(f"Launching {emu_def.get('name', emu_id)}: {cmd_string}", COLOR_GREEN))
             
+            launch_started = time.time()
             # Use shell=True on Windows for proper command execution
             subprocess.Popen(cmd_string, shell=True)
+
+            # Nudge the new window to the foreground once it appears
+            focus_emulator_window(executable, launch_started)
+            
+            # DEFERRED: Kill other emulators asynchronously so it doesn't delay launch
+            if close_other_emulators:
+                def close_other_emus():
+                    print(f"Closing other emulator instances in background...")
+                    terminate_other_emulators(emu_id, emulators)
+                
+                threading.Thread(target=close_other_emus, daemon=True).start()
+            
             return
 
         if "command" in action:
