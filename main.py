@@ -12,6 +12,7 @@ from typing import Optional
 import threading
 import sys
 import msvcrt
+import psutil
 
 # ---- Console colors ----
 COLOR_RESET = "\033[0m"
@@ -99,6 +100,91 @@ def save_emulators(emulators: dict):
         print(color_text(f"Emulators saved to {EMULATORS_FILE}", COLOR_YELLOW))
     except Exception as e:
         print(f"Error saving emulators: {e}")
+
+
+# ---- Emulator Process Management ----
+def get_emulator_executable_name(executable_path: str) -> str:
+    """Extract just the filename from a full executable path"""
+    return os.path.basename(executable_path).lower()
+
+
+def find_running_emulator_by_executable(executable_path: str) -> list:
+    """Find all running processes matching the given executable path
+    
+    Returns:
+        List of Process objects matching the executable
+    """
+    exe_name = get_emulator_executable_name(executable_path)
+    running_processes = []
+    
+    try:
+        for proc in psutil.process_iter(['pid', 'name']):
+            try:
+                if proc.info['name'].lower() == exe_name:
+                    running_processes.append(proc)
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+    except Exception as e:
+        print(f"Error scanning processes: {e}")
+    
+    return running_processes
+
+
+def terminate_emulator_instances(executable_path: str, max_instances: int = 0) -> int:
+    """Terminate running instances of a specific emulator
+    
+    Args:
+        executable_path: Full path to the emulator executable
+        max_instances: If > 0, only terminate if count exceeds this number
+    
+    Returns:
+        Number of processes terminated
+    """
+    processes = find_running_emulator_by_executable(executable_path)
+    
+    if max_instances > 0 and len(processes) <= max_instances:
+        return 0
+    
+    count = 0
+    for proc in processes:
+        try:
+            exe_name = get_emulator_executable_name(executable_path)
+            proc.terminate()
+            try:
+                proc.wait(timeout=3)
+            except psutil.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=3)
+            count += 1
+            print(color_text(f"  Terminated {exe_name} (PID {proc.pid})", COLOR_YELLOW))
+        except Exception as e:
+            print(f"  Warning: Could not terminate process {proc.pid}: {e}")
+    
+    return count
+
+
+def terminate_other_emulators(emulator_id: str, emulators: dict) -> int:
+    """Terminate all emulators except the specified one
+    
+    Args:
+        emulator_id: The ID of the emulator to keep running
+        emulators: The emulators dictionary
+    
+    Returns:
+        Total number of processes terminated
+    """
+    total_terminated = 0
+    
+    for other_id, other_def in emulators.items():
+        if other_id == emulator_id:
+            continue
+        
+        executable = other_def.get("executable", "")
+        if executable and os.path.exists(executable):
+            terminated = terminate_emulator_instances(executable)
+            total_terminated += terminated
+    
+    return total_terminated
 
 
 def ask_add_to_catalog(uid: str) -> bool:
@@ -486,6 +572,19 @@ def execute_action(action, emulators: dict = None):
             if not os.path.exists(executable):
                 print(f"Emulator executable not found: {executable}")
                 return
+            
+            # Handle close_on_launch setting
+            close_on_launch = emu_def.get("close_on_launch", "others")
+            
+            if close_on_launch == "same":
+                # Close any existing instances of THIS emulator
+                print(f"Closing existing instances of {emu_def.get('name', emu_id)}...")
+                terminate_emulator_instances(executable)
+            elif close_on_launch == "others":
+                # Close all OTHER emulators
+                print(f"Closing other emulator instances...")
+                terminate_other_emulators(emu_id, emulators)
+            # If close_on_launch == "none", don't close anything
             
             # Build command line arguments
             executable_quoted = f'"{executable}"'  # Always quote executable
