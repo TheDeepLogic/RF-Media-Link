@@ -2,6 +2,12 @@
 catalog.json
 config.json
 
+# Local launcher with user-specific Python path
+launch-wt.ps1
+
+# Windows shortcuts
+*.lnk
+
 # Python
 __pycache__/
 *.py[cod]

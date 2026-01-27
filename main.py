@@ -178,11 +178,12 @@ def terminate_other_emulators(emulator_id: str, emulators: dict) -> int:
     total_terminated = 0
     
     # First, get list of what's actually running to avoid unnecessary lookups
-    running_processes = {}
+    running_processes: dict[str, list[psutil.Process]] = {}
     try:
         for proc in psutil.process_iter(['pid', 'name']):
             try:
-                running_processes[proc.info['name'].lower()] = proc
+                name = proc.info['name'].lower()
+                running_processes.setdefault(name, []).append(proc)
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 pass
     except Exception as e:
@@ -198,19 +199,18 @@ def terminate_other_emulators(emulator_id: str, emulators: dict) -> int:
         if executable and os.path.exists(executable):
             exe_name = get_emulator_executable_name(executable)
             if exe_name in running_processes:
-                # Only terminate if we found it running
-                proc = running_processes[exe_name]
-                try:
-                    proc.terminate()
+                for proc in list(running_processes[exe_name]):
                     try:
-                        proc.wait(timeout=3)
-                    except psutil.TimeoutExpired:
-                        proc.kill()
-                        proc.wait(timeout=3)
-                    total_terminated += 1
-                    print(color_text(f"  Terminated {exe_name} (PID {proc.pid})", COLOR_YELLOW))
-                except Exception as e:
-                    print(f"  Warning: Could not terminate process: {e}")
+                        proc.terminate()
+                        try:
+                            proc.wait(timeout=3)
+                        except psutil.TimeoutExpired:
+                            proc.kill()
+                            proc.wait(timeout=3)
+                        total_terminated += 1
+                        print(color_text(f"  Terminated {exe_name} (PID {proc.pid})", COLOR_YELLOW))
+                    except Exception as e:
+                        print(f"  Warning: Could not terminate process: {e}")
     
     return total_terminated
 
@@ -240,40 +240,8 @@ def _enum_visible_windows_for_pid(pid: int) -> list:
 
 
 def force_window_focus(root: tk.Tk):
-    """Force a tkinter window to gain focus on Windows, even when launched from command prompt."""
-    if os.name != "nt":
-        return
-    
-    try:
-        # Allow this process to set foreground window
-        user32 = ctypes.windll.user32
-        user32.AllowSetForegroundWindow(-1)  # ASFW_ANY
-        
-        # Update and make topmost temporarily
-        root.update_idletasks()
-        root.attributes('-topmost', True)
-        root.update()
-        
-        # Get the window handle and force it to foreground
-        hwnd = ctypes.windll.user32.GetParent(root.winfo_id())
-        if not hwnd:
-            hwnd = root.winfo_id()
-        
-        # Restore if minimized, then set foreground
-        user32.ShowWindow(hwnd, 9)  # SW_RESTORE
-        user32.SetForegroundWindow(hwnd)
-        
-        # Remove topmost after gaining focus
-        root.after(100, lambda: root.attributes('-topmost', False))
-        
-        root.lift()
-        root.focus_force()
-    except Exception:
-        # Fallback to basic focus methods
-        root.update_idletasks()
-        root.attributes('-topmost', True)
-        root.lift()
-        root.focus_force()
+    """No-op focus helper placeholder."""
+    return
 
 
 def focus_emulator_window(executable_path: str, launch_time: float, timeout: float = 5.0) -> bool:
@@ -320,7 +288,8 @@ def focus_emulator_window(executable_path: str, launch_time: float, timeout: flo
 def ask_add_to_catalog(uid: str) -> bool:
     """GUI yes/no dialog to add an unknown UID to catalog."""
     root = tk.Tk()
-    root.withdraw()
+    root.overrideredirect(True)  # No window decorations for parent
+    root.geometry('1x1+0+0')  # Tiny invisible parent
     force_window_focus(root)
     result = messagebox.askyesno(
         title=f"{PRODUCT_NAME} - Unknown RFID Tag",
@@ -334,7 +303,8 @@ def ask_add_to_catalog(uid: str) -> bool:
 def pick_file(config: dict) -> Optional[str]:
     """Show file picker dialog, remember the last used path"""
     root = tk.Tk()
-    root.withdraw()  # Hide the root window
+    root.overrideredirect(True)  # No window decorations for parent
+    root.geometry('1x1+0+0')  # Tiny invisible parent
     force_window_focus(root)
     center_window(root)
     
@@ -410,7 +380,8 @@ def add_tag_from_uid(uid: str, catalog: dict, config: dict, command_type: str, e
     
     elif command_type == "url":
         root = tk.Tk()
-        root.withdraw()
+        root.overrideredirect(True)
+        root.geometry('1x1+0+0')
         force_window_focus(root)
         center_window(root)
         url = simpledialog.askstring(f"{PRODUCT_NAME} - Enter URL", "URL:", parent=root)
@@ -422,7 +393,8 @@ def add_tag_from_uid(uid: str, catalog: dict, config: dict, command_type: str, e
     
     elif command_type == "command":
         root = tk.Tk()
-        root.withdraw()
+        root.overrideredirect(True)
+        root.geometry('1x1+0+0')
         force_window_focus(root)
         center_window(root)
         cmd = simpledialog.askstring(f"{PRODUCT_NAME} - Enter Command", "Command name (e.g., close_window, screenshot):", parent=root)
@@ -434,7 +406,8 @@ def add_tag_from_uid(uid: str, catalog: dict, config: dict, command_type: str, e
     
     elif command_type == "hotkey":
         root = tk.Tk()
-        root.withdraw()
+        root.overrideredirect(True)
+        root.geometry('1x1+0+0')
         force_window_focus(root)
         center_window(root)
         keys_str = simpledialog.askstring(f"{PRODUCT_NAME} - Enter Hotkey", "Keys comma-separated (e.g., alt,f4):", parent=root)
@@ -447,7 +420,8 @@ def add_tag_from_uid(uid: str, catalog: dict, config: dict, command_type: str, e
     
     elif command_type == "shell":
         root = tk.Tk()
-        root.withdraw()
+        root.overrideredirect(True)
+        root.geometry('1x1+0+0')
         force_window_focus(root)
         center_window(root)
         shell_cmd = simpledialog.askstring(f"{PRODUCT_NAME} - Enter Shell Command", "Shell command (e.g., notepad.exe):", parent=root)
@@ -541,7 +515,8 @@ def add_tag_interactive(ser, catalog: dict, config: dict, emulators: dict, comma
     
     elif command_type == "url":
         root = tk.Tk()
-        root.withdraw()
+        root.overrideredirect(True)
+        root.geometry('1x1+0+0')
         force_window_focus(root)
         center_window(root)
         url = simpledialog.askstring(f"{PRODUCT_NAME} - Enter URL", "URL:")
@@ -553,7 +528,8 @@ def add_tag_interactive(ser, catalog: dict, config: dict, emulators: dict, comma
     
     elif command_type == "command":
         root = tk.Tk()
-        root.withdraw()
+        root.overrideredirect(True)
+        root.geometry('1x1+0+0')
         force_window_focus(root)
         center_window(root)
         cmd = simpledialog.askstring(f"{PRODUCT_NAME} - Enter Command", "Command name (e.g., close_window, screenshot):")
@@ -565,7 +541,8 @@ def add_tag_interactive(ser, catalog: dict, config: dict, emulators: dict, comma
     
     elif command_type == "hotkey":
         root = tk.Tk()
-        root.withdraw()
+        root.overrideredirect(True)
+        root.geometry('1x1+0+0')
         force_window_focus(root)
         center_window(root)
         keys_str = simpledialog.askstring(f"{PRODUCT_NAME} - Enter Hotkey", "Keys comma-separated (e.g., alt,f4):")
@@ -578,7 +555,8 @@ def add_tag_interactive(ser, catalog: dict, config: dict, emulators: dict, comma
     
     elif command_type == "shell":
         root = tk.Tk()
-        root.withdraw()
+        root.overrideredirect(True)
+        root.geometry('1x1+0+0')
         force_window_focus(root)
         center_window(root)
         shell_cmd = simpledialog.askstring(f"{PRODUCT_NAME} - Enter Shell Command", "Shell command (e.g., notepad.exe):")
@@ -691,7 +669,10 @@ def execute_action(action, emulators: dict = None):
                 return
             
             # Handle close_on_launch setting
-            close_on_launch = emu_def.get("close_on_launch", {"close_other_instances": False, "close_other_emulators": True})
+            close_on_launch = emu_def.get(
+                "close_on_launch",
+                {"close_other_instances": False, "close_other_emulators": True, "delay_other_emulators_ms": 0}
+            )
             
             # Support both old string format and new object format
             if isinstance(close_on_launch, str):
@@ -706,13 +687,14 @@ def execute_action(action, emulators: dict = None):
             # Handle new object format
             close_other_instances = close_on_launch.get("close_other_instances", False)
             close_other_emulators = close_on_launch.get("close_other_emulators", True)
+            delay_other_emulators_ms = close_on_launch.get("delay_other_emulators_ms", 0)
             
             # PRIORITY: Kill same-emulator instances FIRST (synchronously) - this prevents conflicts
             if close_other_instances:
                 print(f"Closing existing instances of {emu_def.get('name', emu_id)}...")
                 terminate_emulator_instances(executable)
-            
-            # Then launch the new instance immediately (don't wait for other emulators to close)
+
+            # Then launch the new instance
             # Build command line arguments
             executable_quoted = f'"{executable}"'  # Always quote executable
             cmd_parts = [executable_quoted]
@@ -747,18 +729,17 @@ def execute_action(action, emulators: dict = None):
             print(color_text(f"Launching {emu_def.get('name', emu_id)}: {cmd_string}", COLOR_GREEN))
             
             launch_started = time.time()
-            # Use shell=True on Windows for proper command execution
             subprocess.Popen(cmd_string, shell=True)
 
-            # Nudge the new window to the foreground once it appears
-            focus_emulator_window(executable, launch_started)
-            
             # DEFERRED: Kill other emulators asynchronously so it doesn't delay launch
             if close_other_emulators:
                 def close_other_emus():
-                    print(f"Closing other emulator instances in background...")
-                    terminate_other_emulators(emu_id, emulators)
-                
+                    if delay_other_emulators_ms > 0:
+                        time.sleep(delay_other_emulators_ms / 1000.0)
+                    terminated = terminate_other_emulators(emu_id, emulators)
+                    # NOTE: Suppressing print to avoid console re-activation
+                    # if terminated:
+                    #     print(color_text(f"Closed {terminated} other emulator instance(s) in background", COLOR_YELLOW))
                 threading.Thread(target=close_other_emus, daemon=True).start()
             
             return
@@ -859,7 +840,7 @@ def prompt_select_emulator(emulators: dict) -> Optional[str]:
     dialog = tk.Tk()
     dialog.title(f"{PRODUCT_NAME} - Select Emulator")
     dialog.resizable(False, False)
-    dialog.attributes('-topmost', True)
+    force_window_focus(dialog)
     
     emu_list = list(emulators.keys())
     selected_value = tk.StringVar(value=emu_list[0] if emu_list else "")
@@ -903,7 +884,7 @@ def prompt_select_emulator(emulators: dict) -> Optional[str]:
     y = (screen_height // 2) - (height // 2)
     dialog.geometry(f"350x{height}+{x}+{y}")
     
-    dialog.focus_force()
+    force_window_focus(dialog)
     dialog.wait_window()
     
     return dialog.result
@@ -914,7 +895,7 @@ def prompt_emulator_config(emulator_id: str, emulator_def: dict, config: dict) -
     dialog = tk.Tk()
     dialog.title(f"{PRODUCT_NAME} - Configure {emulator_def.get('name', emulator_id)}")
     dialog.resizable(False, True)
-    dialog.attributes('-topmost', True)
+    force_window_focus(dialog)
     
     # Create main container frame
     main_frame = tk.Frame(dialog)
@@ -1038,7 +1019,7 @@ def prompt_emulator_config(emulator_id: str, emulator_def: dict, config: dict) -
     y = (screen_height // 2) - 350
     dialog.geometry(f"550x700+{x}+{y}")
     
-    dialog.focus_force()
+    force_window_focus(dialog)
     dialog.wait_window()
     
     return dialog.result
@@ -1050,7 +1031,7 @@ def prompt_command_type(config: dict) -> Optional[str]:
     dialog = tk.Tk()
     dialog.title(f"{PRODUCT_NAME} - Select Command Type")
     dialog.resizable(False, False)
-    dialog.attributes('-topmost', True)
+    force_window_focus(dialog)
     
     # Load last selection from config
     last_type = config.get("last_command_type", "file")
@@ -1124,7 +1105,7 @@ def prompt_command_type(config: dict) -> Optional[str]:
     y = (screen_height // 2) - 160
     dialog.geometry(f"300x320+{x}+{y}")
     
-    dialog.focus_force()
+    force_window_focus(dialog)
     dialog.wait_window()
     
     return dialog.result
@@ -1136,7 +1117,7 @@ def prompt_mode(config: dict) -> Optional[tuple[str, bool]]:
     dialog = tk.Tk()
     dialog.title(f"{PRODUCT_NAME} - Select Mode")
     dialog.resizable(False, False)
-    dialog.attributes('-topmost', True)
+    force_window_focus(dialog)
     
     # Load last selection from config
     last_mode = config.get("last_mode", "single")
@@ -1201,7 +1182,7 @@ def prompt_mode(config: dict) -> Optional[tuple[str, bool]]:
     y = (screen_height // 2) - 95
     dialog.geometry(f"450x190+{x}+{y}")
     
-    dialog.focus_force()
+    force_window_focus(dialog)
     dialog.wait_window()
     
     return (dialog.result, dialog.result == "batch") if dialog.result else None
@@ -1216,6 +1197,7 @@ def add_emulator_dialog(emulators: dict):
     """
     dialog = tk.Tk()
     dialog.title(f"{PRODUCT_NAME} - Add Emulator")
+    force_window_focus(dialog)
     
     frame = tk.Frame(dialog, padx=15, pady=15)
     frame.pack(fill=tk.BOTH, expand=True)
@@ -1297,7 +1279,7 @@ def add_emulator_dialog(emulators: dict):
     y = (screen_height // 2) - 175
     dialog.geometry(f"500x350+{x}+{y}")
     
-    dialog.focus_force()
+    force_window_focus(dialog)
     dialog.wait_window()
 
 
@@ -1313,7 +1295,7 @@ def delete_tag_dialog(catalog: dict, config: dict):
     dialog = tk.Tk()
     dialog.title(f"{PRODUCT_NAME} - Delete Tag")
     dialog.resizable(False, False)
-    dialog.attributes('-topmost', True)
+    force_window_focus(dialog)
     
     # Track dialog state to prevent stalling on close
     dialog_closed = [False]
@@ -1392,7 +1374,7 @@ def delete_tag_dialog(catalog: dict, config: dict):
     y = (screen_height // 2) - 225
     dialog.geometry(f"550x450+{x}+{y}")
     
-    dialog.focus_force()
+    force_window_focus(dialog)
     dialog.wait_window()
 
 

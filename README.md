@@ -33,10 +33,28 @@
 ### Setup
 
 1. Connect your RFID reader to your computer via USB serial
-2. Run the application:
-   ```bash
-   python main.py
+2. **IMPORTANT - Windows Users**: For proper window focus behavior, launch from **Windows Terminal** (not cmd.exe). Create a shortcut for easy minimized launching:
+   
+   **First-time setup:**
+   - Copy `launch-wt.ps1.example` to `launch-wt.ps1`
+   - Edit `launch-wt.ps1` and update `$pythonPath` to your Python installation path
+   
+   **Create a Windows Shortcut:**
+   - Right-click on your desktop or in a folder → New → Shortcut
+   - **Target:** `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File "D:\path\to\RetroNFC\launch-wt.ps1"`
+     - Replace `D:\path\to\RetroNFC` with your actual project path
+   - **Start in:** `D:\path\to\RetroNFC` (your project path)
+   - Click Next, name it "RetroNFC", click Finish
+   - Right-click the shortcut → Properties → Run: **Minimized** → OK
+   
+   Now double-click the shortcut to launch RetroNFC minimized with proper focus handling.
+   
+   **Alternative - Run directly in Windows Terminal:**
+   ```powershell
+   wt.exe python main.py
    ```
+   **Note**: Running from cmd.exe or older consoles may cause keyboard focus issues with dialogs and launched emulators.
+
 3. On first launch, RetroNFC will create `config.json` with default serial port settings
 4. If needed, update `serial_port` in `config.json` to match your RFID reader's COM port (e.g., `COM3`, `COM5`)
 
