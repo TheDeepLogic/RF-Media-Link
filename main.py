@@ -239,6 +239,43 @@ def _enum_visible_windows_for_pid(pid: int) -> list:
     return hwnds
 
 
+def force_window_focus(root: tk.Tk):
+    """Force a tkinter window to gain focus on Windows, even when launched from command prompt."""
+    if os.name != "nt":
+        return
+    
+    try:
+        # Allow this process to set foreground window
+        user32 = ctypes.windll.user32
+        user32.AllowSetForegroundWindow(-1)  # ASFW_ANY
+        
+        # Update and make topmost temporarily
+        root.update_idletasks()
+        root.attributes('-topmost', True)
+        root.update()
+        
+        # Get the window handle and force it to foreground
+        hwnd = ctypes.windll.user32.GetParent(root.winfo_id())
+        if not hwnd:
+            hwnd = root.winfo_id()
+        
+        # Restore if minimized, then set foreground
+        user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+        user32.SetForegroundWindow(hwnd)
+        
+        # Remove topmost after gaining focus
+        root.after(100, lambda: root.attributes('-topmost', False))
+        
+        root.lift()
+        root.focus_force()
+    except Exception:
+        # Fallback to basic focus methods
+        root.update_idletasks()
+        root.attributes('-topmost', True)
+        root.lift()
+        root.focus_force()
+
+
 def focus_emulator_window(executable_path: str, launch_time: float, timeout: float = 5.0) -> bool:
     """Bring the newly launched emulator window to the foreground."""
     if os.name != "nt":
@@ -284,10 +321,7 @@ def ask_add_to_catalog(uid: str) -> bool:
     """GUI yes/no dialog to add an unknown UID to catalog."""
     root = tk.Tk()
     root.withdraw()
-    root.attributes('-topmost', True)
-    root.update_idletasks()
-    root.lift()
-    root.focus_force()
+    force_window_focus(root)
     result = messagebox.askyesno(
         title=f"{PRODUCT_NAME} - Unknown RFID Tag",
         message=f"Unknown UID: {uid}\n\nAdd to catalog?",
@@ -301,9 +335,7 @@ def pick_file(config: dict) -> Optional[str]:
     """Show file picker dialog, remember the last used path"""
     root = tk.Tk()
     root.withdraw()  # Hide the root window
-    root.attributes('-topmost', True)
-    root.lift()
-    root.focus_force()
+    force_window_focus(root)
     center_window(root)
     
     initial_dir = config.get("last_browse_path", os.path.expanduser("~"))
@@ -379,10 +411,7 @@ def add_tag_from_uid(uid: str, catalog: dict, config: dict, command_type: str, e
     elif command_type == "url":
         root = tk.Tk()
         root.withdraw()
-        root.attributes('-topmost', True)
-        root.update_idletasks()
-        root.lift()
-        root.focus_force()
+        force_window_focus(root)
         center_window(root)
         url = simpledialog.askstring(f"{PRODUCT_NAME} - Enter URL", "URL:", parent=root)
         root.destroy()
@@ -394,10 +423,7 @@ def add_tag_from_uid(uid: str, catalog: dict, config: dict, command_type: str, e
     elif command_type == "command":
         root = tk.Tk()
         root.withdraw()
-        root.attributes('-topmost', True)
-        root.update_idletasks()
-        root.lift()
-        root.focus_force()
+        force_window_focus(root)
         center_window(root)
         cmd = simpledialog.askstring(f"{PRODUCT_NAME} - Enter Command", "Command name (e.g., close_window, screenshot):", parent=root)
         root.destroy()
@@ -409,10 +435,7 @@ def add_tag_from_uid(uid: str, catalog: dict, config: dict, command_type: str, e
     elif command_type == "hotkey":
         root = tk.Tk()
         root.withdraw()
-        root.attributes('-topmost', True)
-        root.update_idletasks()
-        root.lift()
-        root.focus_force()
+        force_window_focus(root)
         center_window(root)
         keys_str = simpledialog.askstring(f"{PRODUCT_NAME} - Enter Hotkey", "Keys comma-separated (e.g., alt,f4):", parent=root)
         root.destroy()
@@ -425,10 +448,7 @@ def add_tag_from_uid(uid: str, catalog: dict, config: dict, command_type: str, e
     elif command_type == "shell":
         root = tk.Tk()
         root.withdraw()
-        root.attributes('-topmost', True)
-        root.update_idletasks()
-        root.lift()
-        root.focus_force()
+        force_window_focus(root)
         center_window(root)
         shell_cmd = simpledialog.askstring(f"{PRODUCT_NAME} - Enter Shell Command", "Shell command (e.g., notepad.exe):", parent=root)
         root.destroy()
@@ -522,6 +542,7 @@ def add_tag_interactive(ser, catalog: dict, config: dict, emulators: dict, comma
     elif command_type == "url":
         root = tk.Tk()
         root.withdraw()
+        force_window_focus(root)
         center_window(root)
         url = simpledialog.askstring(f"{PRODUCT_NAME} - Enter URL", "URL:")
         root.destroy()
@@ -533,6 +554,7 @@ def add_tag_interactive(ser, catalog: dict, config: dict, emulators: dict, comma
     elif command_type == "command":
         root = tk.Tk()
         root.withdraw()
+        force_window_focus(root)
         center_window(root)
         cmd = simpledialog.askstring(f"{PRODUCT_NAME} - Enter Command", "Command name (e.g., close_window, screenshot):")
         root.destroy()
@@ -544,6 +566,7 @@ def add_tag_interactive(ser, catalog: dict, config: dict, emulators: dict, comma
     elif command_type == "hotkey":
         root = tk.Tk()
         root.withdraw()
+        force_window_focus(root)
         center_window(root)
         keys_str = simpledialog.askstring(f"{PRODUCT_NAME} - Enter Hotkey", "Keys comma-separated (e.g., alt,f4):")
         root.destroy()
@@ -556,6 +579,7 @@ def add_tag_interactive(ser, catalog: dict, config: dict, emulators: dict, comma
     elif command_type == "shell":
         root = tk.Tk()
         root.withdraw()
+        force_window_focus(root)
         center_window(root)
         shell_cmd = simpledialog.askstring(f"{PRODUCT_NAME} - Enter Shell Command", "Shell command (e.g., notepad.exe):")
         root.destroy()
