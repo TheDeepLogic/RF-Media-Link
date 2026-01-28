@@ -201,7 +201,295 @@ class RFMediaLinkConfigurator
             }
         }
     }
+    private static void EditTag()
+    {
+        // Reload to get latest tags
+        LoadAllData();
+        
+        Console.Clear();
+        Console.WriteLine("═══════════════════════════════════════════════════════");
+        Console.WriteLine("  Edit RFID Tag");
+        Console.WriteLine("═══════════════════════════════════════════════════════");
+        Console.WriteLine();
 
+        // Show current tags
+        if (Catalog.ValueKind == JsonValueKind.Object)
+        {
+            var tagList = new List<(string id, string name)>();
+            foreach (var tag in Catalog.EnumerateObject())
+            {
+                var tagName = tag.Value.TryGetProperty("name", out var tn) ? tn.GetString() : "Unknown";
+                tagList.Add((tag.Name, tagName));
+            }
+
+            if (tagList.Count > 0)
+            {
+                Console.WriteLine("Current tags:");
+                foreach (var (id, name) in tagList)
+                {
+                    Console.WriteLine($"  {id} - {name}");
+                }
+                Console.WriteLine();
+            }
+            else
+            {
+                Console.WriteLine("(No tags configured)");
+                Console.WriteLine("Press any key...");
+                Console.ReadKey();
+                return;
+            }
+        }
+
+        Console.Write("Enter Tag UID to edit: ");
+        string uid = Console.ReadLine() ?? "";
+
+        if (string.IsNullOrEmpty(uid))
+        {
+            Console.WriteLine("Cancelled.");
+            System.Threading.Thread.Sleep(1000);
+            return;
+        }
+
+        // Check if tag exists
+        if (!Catalog.TryGetProperty(uid, out var existingTag))
+        {
+            Console.WriteLine($"Tag {uid} not found.");
+            System.Threading.Thread.Sleep(1500);
+            return;
+        }
+
+        // Get existing values
+        string existingName = existingTag.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
+        string existingActionType = existingTag.TryGetProperty("action_type", out var at) ? at.GetString() ?? "" : "";
+        string existingTarget = existingTag.TryGetProperty("action_target", out var tgt) ? tgt.GetString() ?? "" : "";
+
+        Console.WriteLine();
+        Console.WriteLine($"Current values for {uid}:");
+        Console.WriteLine($"  Name: {existingName}");
+        Console.WriteLine($"  Action Type: {existingActionType}");
+        Console.WriteLine($"  Target: {existingTarget}");
+        Console.WriteLine();
+
+        // Edit name
+        Console.Write($"New Name (or Enter to keep '{existingName}'): ");
+        string newName = Console.ReadLine() ?? "";
+        if (string.IsNullOrWhiteSpace(newName))
+            newName = existingName;
+
+        // Edit action type
+        Console.WriteLine();
+        Console.WriteLine("Action Type:");
+        Console.WriteLine("  1. emulator");
+        Console.WriteLine("  2. file");
+        Console.WriteLine("  3. url");
+        Console.WriteLine("  4. command");
+        Console.Write($"Select (1-4, or Enter to keep '{existingActionType}'): ");
+        string actionChoice = Console.ReadLine() ?? "";
+        string newActionType = existingActionType;
+        
+        if (!string.IsNullOrWhiteSpace(actionChoice))
+        {
+            newActionType = actionChoice switch
+            {
+                "2" => "file",
+                "3" => "url",
+                "4" => "command",
+                "1" => "emulator",
+                _ => existingActionType
+            };
+        }
+
+        Console.WriteLine();
+
+        // Handle target based on action type
+        if (newActionType == "emulator")
+        {
+            // Show emulators list
+            var emuList = new List<(string id, string name)>();
+            if (Emulators.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var emu in Emulators.EnumerateObject())
+                {
+                    var name = emu.Value.TryGetProperty("name", out var emn) ? emn.GetString() : emu.Name;
+                    emuList.Add((emu.Name, name));
+                }
+            }
+
+            if (emuList.Count > 0)
+            {
+                Console.WriteLine("Select Emulator:");
+                for (int i = 0; i < emuList.Count; i++)
+                {
+                    string marker = (emuList[i].id == existingTarget) ? " (current)" : "";
+                    Console.WriteLine($"  {i + 1}. {emuList[i].name}{marker}");
+                }
+                Console.Write($"Select (number, or Enter to keep current): ");
+                
+                string choice = Console.ReadLine() ?? "";
+                if (!string.IsNullOrWhiteSpace(choice) && int.TryParse(choice, out int idx) && idx > 0 && idx <= emuList.Count)
+                {
+                    string selectedEmuId = emuList[idx - 1].id;
+                    var emuElement = Emulators.GetProperty(selectedEmuId);
+
+                    // Get emulator arguments
+                    var argsList = new List<(string name, JsonElement def)>();
+                    if (emuElement.TryGetProperty("arguments", out var argsElement) && argsElement.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var arg in argsElement.EnumerateArray())
+                        {
+                            if (arg.TryGetProperty("name", out var argName))
+                            {
+                                argsList.Add((argName.GetString() ?? "", arg));
+                            }
+                        }
+                    }
+
+                    // Get existing argument values
+                    var existingArgs = new Dictionary<string, string>();
+                    if (existingTag.TryGetProperty("action_args", out var existingArgsElement) && existingArgsElement.ValueKind == JsonValueKind.Object)
+                    {
+                        foreach (var argProp in existingArgsElement.EnumerateObject())
+                        {
+                            existingArgs[argProp.Name] = argProp.Value.GetString() ?? "";
+                        }
+                    }
+
+                    Console.Clear();
+                    Console.WriteLine($"Configuring: {emuList[idx - 1].name}");
+                    Console.WriteLine();
+
+                    var argValues = new Dictionary<string, string>();
+
+                    // Collect argument values
+                    for (int i = 0; i < argsList.Count; i++)
+                    {
+                        var (argName, argDef) = argsList[i];
+                        string defaultVal = argDef.TryGetProperty("default", out var d) ? d.ToString() : "";
+                        string type = argDef.TryGetProperty("type", out var t) ? t.GetString() ?? "string" : "string";
+                        string existingVal = existingArgs.ContainsKey(argName) ? existingArgs[argName] : defaultVal;
+
+                        Console.WriteLine($"[{i + 1}/{argsList.Count}] {argName} ({type})");
+                        if (!string.IsNullOrEmpty(existingVal))
+                            Console.WriteLine($"  Current: {existingVal}");
+
+                        string value = "";
+                        
+                        if (argDef.TryGetProperty("choices", out var choicesElement) && choicesElement.ValueKind == JsonValueKind.Array)
+                        {
+                            var choices = new List<string>();
+                            foreach (var choiceItem in choicesElement.EnumerateArray())
+                            {
+                                choices.Add(choiceItem.GetString() ?? "");
+                            }
+
+                            Console.WriteLine("  Options:");
+                            for (int j = 0; j < choices.Count; j++)
+                            {
+                                string marker = (choices[j] == existingVal) ? " (current)" : "";
+                                Console.WriteLine($"    {j + 1}. {choices[j]}{marker}");
+                            }
+                            Console.Write("  Select (number or Enter to keep current): ");
+                            string choice_input = Console.ReadLine() ?? "";
+                            
+                            if (string.IsNullOrWhiteSpace(choice_input))
+                            {
+                                value = existingVal;
+                            }
+                            else if (int.TryParse(choice_input, out int choiceIdx) && choiceIdx > 0 && choiceIdx <= choices.Count)
+                            {
+                                value = choices[choiceIdx - 1];
+                            }
+                            else
+                            {
+                                value = existingVal;
+                            }
+                        }
+                        else if (type == "file")
+                        {
+                            Console.Write("  [B] Browse, or Enter new path (or Enter to keep current): ");
+                            string input = Console.ReadLine() ?? "";
+                            
+                            if (input.Trim().ToUpper() == "B")
+                            {
+                                value = BrowseForFile();
+                                if (string.IsNullOrEmpty(value))
+                                    value = existingVal;
+                            }
+                            else if (string.IsNullOrWhiteSpace(input))
+                            {
+                                value = existingVal;
+                            }
+                            else
+                            {
+                                value = input;
+                            }
+                        }
+                        else
+                        {
+                            Console.Write("  New value (or Enter to keep current): ");
+                            string input = Console.ReadLine() ?? "";
+                            value = string.IsNullOrWhiteSpace(input) ? existingVal : input;
+                        }
+
+                        argValues[argName] = value;
+                        Console.WriteLine();
+                    }
+
+                    // Review and save
+                    Console.Clear();
+                    Console.WriteLine("═══════════════════════════════════════════════════════");
+                    Console.WriteLine($"UID:     {uid}");
+                    Console.WriteLine($"Name:    {newName}");
+                    Console.WriteLine($"Action:  emulator");
+                    Console.WriteLine($"Target:  {selectedEmuId}");
+                    Console.WriteLine();
+                    Console.WriteLine("Arguments:");
+                    foreach (var (name, value) in argValues)
+                    {
+                        Console.WriteLine($"  {name}: {value}");
+                    }
+                    Console.WriteLine();
+                    Console.Write("Save changes? (Y/N): ");
+
+                    if (Console.ReadLine()?.ToUpper() == "Y")
+                    {
+                        SaveTag(uid, newName, "emulator", selectedEmuId, argValues);
+                        Console.WriteLine("Tag updated!");
+                        System.Threading.Thread.Sleep(1000);
+                    }
+                }
+                else
+                {
+                    // Keep existing emulator and args
+                    Console.WriteLine("Keeping existing emulator configuration.");
+                    System.Threading.Thread.Sleep(1000);
+                }
+            }
+        }
+        else
+        {
+            // For non-emulator actions
+            Console.Write($"New Target (or Enter to keep '{existingTarget}'): ");
+            string newTarget = Console.ReadLine() ?? "";
+            if (string.IsNullOrWhiteSpace(newTarget))
+                newTarget = existingTarget;
+
+            Console.WriteLine();
+            Console.WriteLine($"UID:    {uid}");
+            Console.WriteLine($"Name:   {newName}");
+            Console.WriteLine($"Action: {newActionType}");
+            Console.WriteLine($"Target: {newTarget}");
+            Console.WriteLine();
+            Console.Write("Save changes? (Y/N): ");
+
+            if (Console.ReadLine()?.ToUpper() == "Y")
+            {
+                SaveTag(uid, newName, newActionType, newTarget);
+                Console.WriteLine("Tag updated!");
+                System.Threading.Thread.Sleep(1000);
+            }
+        }
+    }
     private static void ManageTags()
     {
         while (true)
@@ -233,16 +521,20 @@ class RFMediaLinkConfigurator
 
             Console.WriteLine();
             Console.WriteLine("A. Add Tag");
+            Console.WriteLine("E. Edit Tag");
             Console.WriteLine("D. Delete Tag");
             Console.WriteLine("B. Back to Menu");
             Console.WriteLine();
-            Console.Write("Select option (A/D/B): ");
+            Console.Write("Select option (A/E/D/B): ");
 
             string choice = Console.ReadLine()?.ToUpper() ?? "";
             switch (choice)
             {
                 case "A":
                     AddTag();
+                    break;
+                case "E":
+                    EditTag();
                     break;
                 case "D":
                     DeleteTag();
@@ -304,22 +596,55 @@ class RFMediaLinkConfigurator
         }
         else
         {
-            Console.Write($"Target ({actionType}): ");
-            string target = Console.ReadLine() ?? "";
-
-            Console.WriteLine();
-            Console.WriteLine($"UID:    {uid}");
-            Console.WriteLine($"Name:   {name}");
-            Console.WriteLine($"Action: {actionType}");
-            Console.WriteLine($"Target: {target}");
-            Console.WriteLine();
-            Console.Write("Save? (Y/N): ");
-
-            if (Console.ReadLine()?.ToUpper() == "Y")
+            bool addMore = true;
+            string lastTarget = "";
+            
+            while (addMore)
             {
-                SaveTag(uid, name, actionType, target);
-                Console.WriteLine("Tag saved!");
-                System.Threading.Thread.Sleep(1000);
+                if (string.IsNullOrEmpty(lastTarget))
+                {
+                    Console.Write($"Target ({actionType}): ");
+                    lastTarget = Console.ReadLine() ?? "";
+                }
+
+                Console.WriteLine();
+                Console.WriteLine($"UID:    {uid}");
+                Console.WriteLine($"Name:   {name}");
+                Console.WriteLine($"Action: {actionType}");
+                Console.WriteLine($"Target: {lastTarget}");
+                Console.WriteLine();
+                Console.Write("Save? (Y/N): ");
+
+                if (Console.ReadLine()?.ToUpper() == "Y")
+                {
+                    SaveTag(uid, name, actionType, lastTarget);
+                    Console.WriteLine("Tag saved!");
+                    System.Threading.Thread.Sleep(1000);
+                    
+                    // Ask if they want to add another
+                    Console.WriteLine();
+                    Console.Write($"Add another tag with same settings ({actionType}/{lastTarget})? (Y/N): ");
+                    if (Console.ReadLine()?.ToUpper() == "Y")
+                    {
+                        // Get new UID and name for next tag
+                        Console.WriteLine();
+                        uid = WaitForScan();
+                        if (string.IsNullOrEmpty(uid))
+                            break;
+                        
+                        Console.Write("Tag Name: ");
+                        name = Console.ReadLine() ?? "";
+                        Console.Clear();
+                    }
+                    else
+                    {
+                        addMore = false;
+                    }
+                }
+                else
+                {
+                    addMore = false;
+                }
             }
         }
     }
@@ -445,7 +770,7 @@ class RFMediaLinkConfigurator
         string selectedEmuId = emuList[idx - 1].id;
         var emuElement = Emulators.GetProperty(selectedEmuId);
 
-        // Get the arguments
+        // Get the arguments definition
         var argsList = new List<(string name, JsonElement def)>();
         if (emuElement.TryGetProperty("arguments", out var argsElement))
         {
@@ -461,128 +786,172 @@ class RFMediaLinkConfigurator
             }
         }
 
-        Console.Clear();
-        Console.WriteLine($"Configuring: {emuList[idx - 1].name}");
-        Console.WriteLine();
-
-        var argValues = new Dictionary<string, string>();
-
-        // Collect argument values
-        for (int i = 0; i < argsList.Count; i++)
+        // Loop for adding multiple tags with same emulator
+        bool addMore = true;
+        Dictionary<string, string>? lastArgValues = null;
+        
+        while (addMore)
         {
-            var (argName, argDef) = argsList[i];
-            string defaultVal = argDef.TryGetProperty("default", out var d) ? d.ToString() : "";
-            string type = argDef.TryGetProperty("type", out var t) ? t.GetString() ?? "string" : "string";
+            Console.Clear();
+            Console.WriteLine($"Configuring: {emuList[idx - 1].name}");
+            Console.WriteLine();
 
-            Console.WriteLine($"[{i + 1}/{argsList.Count}] {argName} ({type})");
-            if (!string.IsNullOrEmpty(defaultVal))
-                Console.WriteLine($"  Default: {defaultVal}");
+            var argValues = lastArgValues ?? new Dictionary<string, string>();
 
-            // Check if this argument has choices
-            string value = "";
-            if (argDef.TryGetProperty("choices", out var choicesElement) && choicesElement.ValueKind == JsonValueKind.Array)
+            // Collect argument values (reuse last values if available)
+            for (int i = 0; i < argsList.Count; i++)
             {
-                var choices = new List<string>();
-                foreach (var choiceItem in choicesElement.EnumerateArray())
+                var (argName, argDef) = argsList[i];
+                string defaultVal = argDef.TryGetProperty("default", out var d) ? d.ToString() : "";
+                string type = argDef.TryGetProperty("type", out var t) ? t.GetString() ?? "string" : "string";
+                
+                // If we have last values and this is a non-file argument, reuse it
+                string lastValue = "";
+                if (lastArgValues != null && lastArgValues.ContainsKey(argName) && type != "file")
                 {
-                    choices.Add(choiceItem.GetString() ?? "");
+                    lastValue = lastArgValues[argName];
+                    argValues[argName] = lastValue;
+                    Console.WriteLine($"[{i + 1}/{argsList.Count}] {argName}: {lastValue} (reusing)");
+                    Console.WriteLine();
+                    continue;
                 }
 
-                Console.WriteLine("  Options:");
-                for (int j = 0; j < choices.Count; j++)
+                Console.WriteLine($"[{i + 1}/{argsList.Count}] {argName} ({type})");
+                if (!string.IsNullOrEmpty(defaultVal))
+                    Console.WriteLine($"  Default: {defaultVal}");
+
+                // Check if this argument has choices
+                string value = "";
+                if (argDef.TryGetProperty("choices", out var choicesElement) && choicesElement.ValueKind == JsonValueKind.Array)
                 {
-                    string marker = (!string.IsNullOrEmpty(defaultVal) && choices[j] == defaultVal) ? " (default)" : "";
-                    Console.WriteLine($"    {j + 1}. {choices[j]}{marker}");
-                }
-                Console.Write("  Select (number or Enter for default): ");
-                string choice_input = Console.ReadLine() ?? "";
-                if (string.IsNullOrWhiteSpace(choice_input))
-                {
-                    value = defaultVal;
-                }
-                else if (int.TryParse(choice_input, out int choiceIdx) && choiceIdx > 0 && choiceIdx <= choices.Count)
-                {
-                    value = choices[choiceIdx - 1];
+                    var choices = new List<string>();
+                    foreach (var choiceItem in choicesElement.EnumerateArray())
+                    {
+                        choices.Add(choiceItem.GetString() ?? "");
+                    }
+
+                    Console.WriteLine("  Options:");
+                    for (int j = 0; j < choices.Count; j++)
+                    {
+                        string marker = (!string.IsNullOrEmpty(defaultVal) && choices[j] == defaultVal) ? " (default)" : "";
+                        Console.WriteLine($"    {j + 1}. {choices[j]}{marker}");
+                    }
+                    Console.Write("  Select (number or Enter for default): ");
+                    string choice_input = Console.ReadLine() ?? "";
+                    if (string.IsNullOrWhiteSpace(choice_input))
+                    {
+                        value = defaultVal;
+                    }
+                    else if (int.TryParse(choice_input, out int choiceIdx) && choiceIdx > 0 && choiceIdx <= choices.Count)
+                    {
+                        value = choices[choiceIdx - 1];
+                    }
+                    else
+                    {
+                        value = defaultVal;
+                    }
                 }
                 else
                 {
-                    value = defaultVal;
+                    // For file types, offer file browser or manual entry
+                    if (type == "file")
+                    {
+                        Console.Write("  [B] Browse, or Enter path (or S to skip): ");
+                        string input = Console.ReadLine() ?? "";
+                        
+                        if (input.Trim().ToUpper() == "B")
+                        {
+                            value = BrowseForFile();
+                        }
+                        else if (input.Trim().ToUpper() == "S" && i < argsList.Count - 1)
+                        {
+                            // Fill remaining with defaults
+                            for (int j = i; j < argsList.Count; j++)
+                            {
+                                var (nextName, nextDef) = argsList[j];
+                                string nextDefault = nextDef.TryGetProperty("default", out var nd) ? nd.ToString() : "";
+                                argValues[nextName] = nextDefault;
+                            }
+                            break;
+                        }
+                        else
+                        {
+                            value = string.IsNullOrWhiteSpace(input) ? defaultVal : input;
+                        }
+                    }
+                    else
+                    {
+                        Console.Write("  Value (or Enter for default, or S to skip rest): ");
+                        string input = Console.ReadLine() ?? "";
+                        
+                        if (input.Trim().ToUpper() == "S" && i < argsList.Count - 1)
+                        {
+                            // Fill remaining with defaults
+                            for (int j = i; j < argsList.Count; j++)
+                            {
+                                var (nextName, nextDef) = argsList[j];
+                                string nextDefault = nextDef.TryGetProperty("default", out var nd) ? nd.ToString() : "";
+                                argValues[nextName] = nextDefault;
+                            }
+                            break;
+                        }
+                        
+                        value = string.IsNullOrWhiteSpace(input) ? defaultVal : input;
+                    }
+                }
+
+                argValues[argName] = value;
+                Console.WriteLine();
+            }
+
+            // Review and save
+            Console.Clear();
+            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine($"UID:     {uid}");
+            Console.WriteLine($"Name:    {tagName}");
+            Console.WriteLine($"Action:  emulator");
+            Console.WriteLine($"Target:  {selectedEmuId}");
+            Console.WriteLine();
+            Console.WriteLine("Arguments:");
+            foreach (var (name, value) in argValues)
+            {
+                Console.WriteLine($"  {name}: {value}");
+            }
+            Console.WriteLine();
+            Console.Write("Save? (Y/N): ");
+
+            if (Console.ReadLine()?.ToUpper() == "Y")
+            {
+                SaveTag(uid, tagName, "emulator", selectedEmuId, argValues);
+                Console.WriteLine("Tag saved!");
+                System.Threading.Thread.Sleep(1000);
+                
+                // Store the arg values for reuse
+                lastArgValues = new Dictionary<string, string>(argValues);
+                
+                // Ask if they want to add another
+                Console.WriteLine();
+                Console.Write($"Add another tag with same emulator ({emuList[idx - 1].name})? (Y/N): ");
+                if (Console.ReadLine()?.ToUpper() == "Y")
+                {
+                    // Get new UID and name for next tag
+                    Console.WriteLine();
+                    uid = WaitForScan();
+                    if (string.IsNullOrEmpty(uid))
+                        break;
+                    
+                    Console.Write("Tag Name: ");
+                    tagName = Console.ReadLine() ?? "";
+                }
+                else
+                {
+                    addMore = false;
                 }
             }
             else
             {
-                // For file types, offer file browser or manual entry
-                if (type == "file")
-                {
-                    Console.Write("  [B] Browse, or Enter path (or S to skip): ");
-                    string input = Console.ReadLine() ?? "";
-                    
-                    if (input.Trim().ToUpper() == "B")
-                    {
-                        value = BrowseForFile();
-                    }
-                    else if (input.Trim().ToUpper() == "S" && i < argsList.Count - 1)
-                    {
-                        // Fill remaining with defaults
-                        for (int j = i; j < argsList.Count; j++)
-                        {
-                            var (nextName, nextDef) = argsList[j];
-                            string nextDefault = nextDef.TryGetProperty("default", out var nd) ? nd.ToString() : "";
-                            argValues[nextName] = nextDefault;
-                        }
-                        break;
-                    }
-                    else
-                    {
-                        value = string.IsNullOrWhiteSpace(input) ? defaultVal : input;
-                    }
-                }
-                else
-                {
-                    Console.Write("  Value (or Enter for default, or S to skip rest): ");
-                    string input = Console.ReadLine() ?? "";
-                    
-                    if (input.Trim().ToUpper() == "S" && i < argsList.Count - 1)
-                    {
-                        // Fill remaining with defaults
-                        for (int j = i; j < argsList.Count; j++)
-                        {
-                            var (nextName, nextDef) = argsList[j];
-                            string nextDefault = nextDef.TryGetProperty("default", out var nd) ? nd.ToString() : "";
-                            argValues[nextName] = nextDefault;
-                        }
-                        break;
-                    }
-                    
-                    value = string.IsNullOrWhiteSpace(input) ? defaultVal : input;
-                }
+                addMore = false;
             }
-
-            argValues[argName] = value;
-            Console.WriteLine();
-        }
-
-        // Review and save
-        Console.Clear();
-        Console.WriteLine("═══════════════════════════════════════════════════════");
-        Console.WriteLine($"UID:     {uid}");
-        Console.WriteLine($"Name:    {tagName}");
-        Console.WriteLine($"Action:  emulator");
-        Console.WriteLine($"Target:  {selectedEmuId}");
-        Console.WriteLine();
-        Console.WriteLine("Arguments:");
-        foreach (var (name, value) in argValues)
-        {
-            Console.WriteLine($"  {name}: {value}");
-        }
-        Console.WriteLine();
-        Console.Write("Save? (Y/N): ");
-
-        if (Console.ReadLine()?.ToUpper() == "Y")
-        {
-            SaveTag(uid, tagName, "emulator", selectedEmuId, argValues);
-            Console.WriteLine("Tag saved!");
-            System.Threading.Thread.Sleep(1000);
         }
     }
 
