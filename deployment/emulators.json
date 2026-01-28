@@ -44,7 +44,7 @@
           "empty",
           "hdc"
         ],
-        "default": "empty",
+        "default": "hdc",
         "required": false
       },
       {

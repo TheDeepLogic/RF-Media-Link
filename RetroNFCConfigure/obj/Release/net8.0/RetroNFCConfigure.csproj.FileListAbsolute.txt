@@ -1,0 +1,15 @@
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\bin\Release\net8.0\RetroNFCConfigure.exe
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\bin\Release\net8.0\RetroNFCConfigure.deps.json
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\bin\Release\net8.0\RetroNFCConfigure.runtimeconfig.json
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\bin\Release\net8.0\RetroNFCConfigure.dll
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\bin\Release\net8.0\RetroNFCConfigure.pdb
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\obj\Release\net8.0\RetroNFCConfigure.GeneratedMSBuildEditorConfig.editorconfig
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\obj\Release\net8.0\RetroNFCConfigure.AssemblyInfoInputs.cache
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\obj\Release\net8.0\RetroNFCConfigure.AssemblyInfo.cs
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\obj\Release\net8.0\RetroNFCConfigure.csproj.CoreCompileInputs.cache
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\obj\Release\net8.0\RetroNFCConfigure.sourcelink.json
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\obj\Release\net8.0\RetroNFCConfigure.dll
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\obj\Release\net8.0\refint\RetroNFCConfigure.dll
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\obj\Release\net8.0\RetroNFCConfigure.pdb
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\obj\Release\net8.0\RetroNFCConfigure.genruntimeconfig.cache
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\obj\Release\net8.0\ref\RetroNFCConfigure.dll
