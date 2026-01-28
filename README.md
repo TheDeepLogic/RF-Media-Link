@@ -17,6 +17,13 @@
 - **Hot Reload**: Add tags via configurator while service runs - no restart needed
 - **JSON Configuration**: Easy backup, version control, and manual editing
 
+> **Reader Compatibility Note**
+> RF Media Link is built around a **custom serial RFID reader** for this project. See the parts list in [BOM.md](BOM.md) and the ESP32 serial firmware in [host_examples/esp32c3_rfid_reader_with_display.ino](host_examples/esp32c3_rfid_reader_with_display.ino). Most off‑the‑shelf HID/keyboard‑wedge readers will **not** work with the service.
+> 
+> **Future Idea (Not Implemented)**: A configurable input string format could be added later to support other serial readers. This is documentation‑only for now.
+>
+> **Platform Scope**: The end‑to‑end solution is **Windows‑only** right now. Porting to macOS/Linux would require additional work and is out of scope for this project.
+
 ---
 
 ## Quick Start
@@ -24,7 +31,7 @@
 ### Requirements
 
 - **Windows 10/11** (Windows Service requires .NET 8.0 runtime)
-- **RFID Reader**: Any USB serial RFID tag reader (PN532, RC522, etc.)
+- **RFID Reader**: This project requires a **serial-output reader** compatible with the custom firmware described in [host_examples/README.md](host_examples/README.md) (see the ESP32 example with display). HID/keyboard-wedge readers are **not supported**.
 - **Applications**: Install your chosen media applications
 
 ### Installation
