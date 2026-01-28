@@ -14,7 +14,7 @@
 - **Multiple Application Support**: Media players, file explorers, browsers, custom apps
 - **Flexible Actions**: Launch applications, open files, navigate URLs, run commands
 - **Customizable Arguments**: File paths, choices, toggles, and flags per application
-- **Hot Reload**: Add tags via configurator while service runs - no restart needed
+- **Hot Reload**: Add tags via configurator while service runs
 - **JSON Configuration**: Easy backup, version control, and manual editing
 
 > **Reader Compatibility Note**
@@ -288,11 +288,10 @@ Shows all configured tags:
 2. [AA BB CC DD] Ultima IV
 
 A. Add Tag
+E. Edit Tag
 D. Delete Tag
 B. Back to Menu
 ```
-
-**After adding a tag, it appears immediately in the list - no restart needed!**
 
 ### Adding Tags
 
@@ -313,6 +312,14 @@ B. Back to Menu
 2. Enter UID of tag to delete
 3. Confirm deletion
 
+### Editing Tags
+
+1. Press `E` from Manage Tags menu
+2. Enter UID of tag to edit
+3. Press Enter to keep existing values, or enter new values
+4. For emulator tags, you can change the emulator and update arguments
+5. Confirm save
+
 ---
 
 ## Service Management
@@ -326,14 +333,12 @@ Start-Service "RF Media Link"
 # Stop service
 Stop-Service "RF Media Link"
 
-# Restart service (if needed for config.json or emulators.json changes)
+# Restart service
 Restart-Service "RF Media Link"
 
 # Check status
 Get-Service "RF Media Link"
 ```
-
-**Note**: catalog.json changes are hot-reloaded automatically - no service restart needed!
 
 ### View Logs
 
@@ -374,16 +379,15 @@ cd deployment
 1. Check serial port in `config.json` matches your RFID reader
 2. Verify .NET 8.0 Runtime is installed
 3. Check Event Viewer for errors:
-   ```powershell
-   Get-EventLog -LogName Application -Source "RF Media Link" -Newest 10
-   ```
+  ```powershell
+  Get-EventLog -LogName Application -Source "RF Media Link" -Newest 10
+  ```
 
 ### Tag not recognized
 
 1. Verify tag is in `catalog.json`
 2. Check UID format matches (spaces, uppercase: `66 DC 6E 05`)
 3. Check Event Log - service logs "DEBUG: Catalog keys:" and "DEBUG: Looking for UID:" for comparison
-4. Service automatically reloads catalog on each scan - no restart needed
 
 ### Emulator won't launch
 
@@ -397,12 +401,6 @@ cd deployment
 1. Verify service is running: `Get-Service "RF Media Link"`
 2. Check that `last_scan.txt` is being created in `%LOCALAPPDATA%\RFMediaLink\`
 3. Restart service if needed
-
-### New tags don't appear after adding
-
-- This has been fixed - configurator now properly reloads data after saving
-- Tags appear immediately in the list
-- If you experience this issue, you may be running an older build
 
 ---
 
