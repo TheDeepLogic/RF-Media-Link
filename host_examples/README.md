@@ -1,6 +1,6 @@
 # RFID Reader Host Examples
 
-These are reference implementations for RFID readers that communicate with RetroNFC via serial connection. Each example implements the same protocol: send `UID: {hex_string}` when a tag is scanned.
+These are reference implementations for RFID readers that communicate with RF Media Link via serial connection. Each example implements the same protocol: send `UID: {hex_string}` when a tag is scanned.
 
 ## Protocol
 
@@ -84,7 +84,7 @@ Connect the microcontroller to your PC via USB. The serial port will appear as:
 - **Linux**: /dev/ttyUSB0, /dev/ttyACM0, etc.
 - **macOS**: /dev/tty.usbserial-*, /dev/tty.usbmodem*, etc.
 
-Update `config.json` in RetroNFC with your serial port:
+Update `config.json` in RF Media Link with your serial port:
 ```json
 {
   "serial_port": "COM9",
@@ -94,13 +94,13 @@ Update `config.json` in RetroNFC with your serial port:
 
 ## Testing
 
-Before using with RetroNFC:
+Before using with RF Media Link:
 1. Upload the example code to your microcontroller
 2. Open a serial monitor (Arduino IDE, PuTTY, minicom, etc.)
 3. Scan an NFC tag
 4. Verify you see output like: `UID: 041234567890AB`
 
-Once verified, start RetroNFC and scan tags normally.
+Once verified, start RF Media Link and scan tags normally.
 
 ## Customization
 

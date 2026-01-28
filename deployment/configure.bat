@@ -1,14 +1,14 @@
 @echo off
-REM RetroNFC Configuration Tool Launcher
+REM RF Media Link Configuration Tool Launcher
 setlocal enabledelayedexpansion
 
-set RETRODIR=%LOCALAPPDATA%\RetroNFC
+set RFMEDIALINK=%LOCALAPPDATA%\RFMediaLink
 
-if not exist "%RETRODIR%\RetroNFCConfigure.exe" (
-    echo Error: RetroNFC Configure not found in AppData
-    echo Expected location: %RETRODIR%
+if not exist "%RFMEDIALINK%\RFMediaLink.exe" (
+    echo Error: RF Media Link Configure not found in AppData
+    echo Expected location: %RFMEDIALINK%
     pause
     exit /b 1
 )
 
-"%RETRODIR%\RetroNFCConfigure.exe"
+"%RFMEDIALINK%\RFMediaLink.exe"

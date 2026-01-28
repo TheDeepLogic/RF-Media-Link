@@ -32,17 +32,17 @@
 1. **Clone or download** this repository
 2. **Build the projects** (or use pre-built binaries from releases):
    ```powershell
-   cd RetroNFCService
+   cd RFMediaLinkService
    dotnet publish -c Release
    
-   cd ..\RetroNFCConfigure
+   cd ..\RFMediaLink
    dotnet publish -c Release
    ```
 
 3. **Run the installer** (as Administrator):
    ```powershell
    cd deployment
-   .\install-retrof.ps1
+   .\install-rfmedialink.ps1
    ```
    
    This will:
@@ -183,7 +183,7 @@ When adding tags, use shortcuts to speed up configuration:
 
 ## Included Emulators
 
-RetroNFC comes preconfigured with:
+RF Media Link comes preconfigured with:
 
 - **AppleWin**: Apple II emulator
 - **Stella**: Atari 2600 emulator
@@ -207,7 +207,7 @@ To add more emulators, edit `emulators.json` manually with the same structure.
 └─────────────────┘          │
                              ▼
                     ┌──────────────────┐
-                    │ RetroNFC Service │
+                    │ RF Media Link Service │
                     │  (Background)    │
                     └──────────────────┘
                              │
@@ -253,15 +253,15 @@ The service parses the UID, looks it up in `catalog.json`, and executes the mapp
 
 ## Configurator Usage
 
-Run `configure.bat` or `RetroNFCConfigure.exe` directly.
+Run `configure.bat` or `RFMediaLink.exe` directly.
 
 ### Main Menu
 
 ```
 ═══════════════════════════════════════════════════════
-  RetroNFC Configuration Tool
+  RF Media Link Configuration Tool
 ═══════════════════════════════════════════════════════
-Config Location: C:\Users\...\AppData\Local\RetroNFC
+Config Location: C:\Users\...\AppData\Local\RFMediaLink
 
 1. Manage Tags
 2. View Emulators
@@ -314,16 +314,16 @@ B. Back to Menu
 
 ```powershell
 # Start service
-Start-Service RetroNFC
+Start-Service "RF Media Link"
 
 # Stop service
-Stop-Service RetroNFC
+Stop-Service "RF Media Link"
 
 # Restart service (if needed for config.json or emulators.json changes)
-Restart-Service RetroNFC
+Restart-Service "RF Media Link"
 
 # Check status
-Get-Service RetroNFC
+Get-Service "RF Media Link"
 ```
 
 **Note**: catalog.json changes are hot-reloaded automatically - no service restart needed!
@@ -334,10 +334,10 @@ Service logs to Windows Event Log:
 
 ```powershell
 # View recent logs
-Get-EventLog -LogName Application -Source RetroNFC -Newest 50
+Get-EventLog -LogName Application -Source "RF Media Link" -Newest 50
 
 # Real-time monitoring
-Get-EventLog -LogName Application -Source RetroNFC -Newest 1 -After (Get-Date).AddMinutes(-1)
+Get-EventLog -LogName Application -Source "RF Media Link" -Newest 1 -After (Get-Date).AddMinutes(-1)
 ```
 
 ### Update Service
@@ -368,7 +368,7 @@ cd deployment
 2. Verify .NET 8.0 Runtime is installed
 3. Check Event Viewer for errors:
    ```powershell
-   Get-EventLog -LogName Application -Source RetroNFC -Newest 10
+   Get-EventLog -LogName Application -Source "RF Media Link" -Newest 10
    ```
 
 ### Tag not recognized
@@ -387,8 +387,8 @@ cd deployment
 
 ### Configurator doesn't see scans
 
-1. Verify service is running: `Get-Service RetroNFC`
-2. Check that `last_scan.txt` is being created in `%LOCALAPPDATA%\RetroNFC\`
+1. Verify service is running: `Get-Service "RF Media Link"`
+2. Check that `last_scan.txt` is being created in `%LOCALAPPDATA%\RFMediaLink\`
 3. Restart service if needed
 
 ### New tags don't appear after adding
@@ -430,7 +430,7 @@ To add a new emulator, edit `emulators.json`:
 }
 ```
 
-Then restart the service: `Restart-Service RetroNFC`
+Then restart the service: `Restart-Service "RF Media Link"`
 
 ### Non-Emulator Actions
 
@@ -471,15 +471,15 @@ You can map tags to other actions by editing `catalog.json`:
 
 ### Backup and Restore
 
-All configuration is in JSON files in `%LOCALAPPDATA%\RetroNFC\`:
+All configuration is in JSON files in `%LOCALAPPDATA%\RFMediaLink\`:
 
 ```powershell
 # Backup
-Copy-Item "$env:LOCALAPPDATA\RetroNFC\*.json" "D:\Backup\"
+Copy-Item "$env:LOCALAPPDATA\RFMediaLink\*.json" "D:\Backup\"
 
 # Restore
-Copy-Item "D:\Backup\*.json" "$env:LOCALAPPDATA\RetroNFC\"
-Restart-Service RetroNFC
+Copy-Item "D:\Backup\*.json" "$env:LOCALAPPDATA\RFMediaLink\"
+Restart-Service "RF Media Link"
 ```
 
 ---
@@ -489,14 +489,14 @@ Restart-Service RetroNFC
 ### Project Structure
 
 ```
-RetroNFC/
-├── RetroNFCService/          # Windows Service (C# .NET 8.0)
+RF Media Link/
+├── RFMediaLinkService/       # Windows Service (C# .NET 8.0)
 │   ├── RfidWorker.cs         # Core service logic
 │   ├── Program.cs            # Service host setup
-│   └── RetroNFCService.csproj
-├── RetroNFCConfigure/        # Configuration tool (C# .NET 8.0)
+│   └── RFMediaLinkService.csproj
+├── RFMediaLink/              # Configuration tool (C# .NET 8.0)
 │   ├── Program.cs            # Console UI
-│   └── RetroNFCConfigure.csproj
+│   └── RFMediaLink.csproj
 ├── deployment/               # Installation scripts & binaries
 │   ├── install-retrof.ps1
 │   ├── update-service.ps1
@@ -520,15 +520,15 @@ RetroNFC/
 
 ```powershell
 # Build service
-cd RetroNFCService
+cd RFMediaLinkService
 dotnet publish -c Release
 
 # Build configurator
-cd ..\RetroNFCConfigure
+cd ..\RFMediaLink
 dotnet publish -c Release
 
 # Copy to deployment
-Copy-Item "RetroNFCService\bin\Release\net8.0-windows\publish\*" "deployment\build\" -Recurse -Force
+Copy-Item "RFMediaLinkService\bin\Release\net8.0-windows\publish\*" "deployment\build\" -Recurse -Force
 ```
 
 ### Contributing

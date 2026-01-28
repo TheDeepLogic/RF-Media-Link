@@ -1,12 +1,12 @@
-# Clean uninstall and reinstall RetroNFC Service
+# Clean uninstall and reinstall RF Media Link Service
 # Run as Administrator
 
-$serviceName = "RetroNFC"
-$installDir = "$env:LOCALAPPDATA\RetroNFC"
+$serviceName = "RF Media Link"
+$installDir = "$env:LOCALAPPDATA\RFMediaLink"
 $sourceDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $buildDir = Join-Path $sourceDir "build"
 
-Write-Host "=== Clean Installation of RetroNFC Service ===" -ForegroundColor Cyan
+Write-Host "=== Clean Installation of RF Media Link Service ===" -ForegroundColor Cyan
 
 # Step 1: Stop the service if running
 Write-Host "`n[1/5] Stopping service..." -ForegroundColor Yellow
@@ -38,7 +38,7 @@ Write-Host "    Files copied to $installDir" -ForegroundColor Green
 
 # Step 5: Recreate service
 Write-Host "[5/5] Creating service..." -ForegroundColor Yellow
-$exePath = Join-Path $installDir "RetroNFCService.exe"
+$exePath = Join-Path $installDir "RFMediaLinkService.exe"
 sc.exe create $serviceName binPath= $exePath start= auto | Out-Null
 Start-Service $serviceName
 

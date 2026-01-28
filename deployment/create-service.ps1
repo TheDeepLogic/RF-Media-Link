@@ -3,7 +3,7 @@
 
 $ServiceName = "RF Media Link"
 $DisplayName = "RF Media Link"
-$ExePath = "$env:LOCALAPPDATA\RFMediaLink\RetroNFCService.exe"
+$ExePath = "$env:LOCALAPPDATA\RFMediaLink\RFMediaLinkService.exe"
 
 function Test-Administrator {
     $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -17,12 +17,12 @@ if (-not (Test-Administrator)) {
 }
 
 # Stop old service if exists
-$oldService = Get-Service -Name "RetroNFC" -ErrorAction SilentlyContinue
+$oldService = Get-Service -Name "RF Media Link" -ErrorAction SilentlyContinue
 if ($oldService) {
-    Write-Host "Stopping old RetroNFC service..."
-    sc.exe stop "RetroNFC" | Out-Null
+    Write-Host "Stopping old RF Media Link service..."
+    sc.exe stop "RF Media Link" | Out-Null
     Start-Sleep -Seconds 2
-    sc.exe delete "RetroNFC" | Out-Null
+    sc.exe delete "RF Media Link" | Out-Null
     Write-Host "Old service removed"
 }
 

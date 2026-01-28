@@ -1,0 +1,15 @@
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RFMediaLink\bin\Release\net8.0-windows\RFMediaLink.exe
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RFMediaLink\bin\Release\net8.0-windows\RFMediaLink.deps.json
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RFMediaLink\bin\Release\net8.0-windows\RFMediaLink.runtimeconfig.json
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RFMediaLink\bin\Release\net8.0-windows\RFMediaLink.dll
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RFMediaLink\bin\Release\net8.0-windows\RFMediaLink.pdb
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RFMediaLink\obj\Release\net8.0-windows\RFMediaLink.GeneratedMSBuildEditorConfig.editorconfig
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RFMediaLink\obj\Release\net8.0-windows\RFMediaLink.AssemblyInfoInputs.cache
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RFMediaLink\obj\Release\net8.0-windows\RFMediaLink.AssemblyInfo.cs
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RFMediaLink\obj\Release\net8.0-windows\RFMediaLink.csproj.CoreCompileInputs.cache
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RFMediaLink\obj\Release\net8.0-windows\RFMediaLink.sourcelink.json
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RFMediaLink\obj\Release\net8.0-windows\RFMediaLink.dll
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RFMediaLink\obj\Release\net8.0-windows\refint\RFMediaLink.dll
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RFMediaLink\obj\Release\net8.0-windows\RFMediaLink.pdb
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RFMediaLink\obj\Release\net8.0-windows\RFMediaLink.genruntimeconfig.cache
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RFMediaLink\obj\Release\net8.0-windows\ref\RFMediaLink.dll

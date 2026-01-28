@@ -1,8 +1,8 @@
-# Update RetroNFC Service
+# Update RF Media Link Service
 # Run as Administrator
 
-$serviceName = "RetroNFC"
-$installDir = "$env:LOCALAPPDATA\RetroNFC"
+$serviceName = "RF Media Link"
+$installDir = "$env:LOCALAPPDATA\RFMediaLink"
 $sourceDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $buildDir = Join-Path $sourceDir "build"
 
@@ -16,7 +16,7 @@ Write-Host "Updating binaries..." -ForegroundColor Yellow
 Copy-Item -Path "$buildDir\*" -Destination $installDir -Recurse -Force
 
 Write-Host "Updating Configuration Tool..." -ForegroundColor Yellow
-$configureDir = Join-Path (Split-Path -Parent $sourceDir) "RetroNFCConfigure\bin\Release\publish"
+$configureDir = Join-Path (Split-Path -Parent $sourceDir) "RFMediaLink\bin\Release\publish"
 if (Test-Path $configureDir) {
     Copy-Item -Path "$configureDir\*" -Destination $installDir -Force -ErrorAction SilentlyContinue
 }
