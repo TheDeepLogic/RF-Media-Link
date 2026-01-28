@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\OneDrive\\Software\\Vintage\\_GitHub\\RetroNFC\\RFMediaLinkService\\RFMediaLinkService.csproj": {}
+    "C:\\dev\\RFMediaLink\\RFMediaLinkService\\RFMediaLinkService.csproj": {}
   },
   "projects": {
-    "D:\\OneDrive\\Software\\Vintage\\_GitHub\\RetroNFC\\RFMediaLinkService\\RFMediaLinkService.csproj": {
+    "C:\\dev\\RFMediaLink\\RFMediaLinkService\\RFMediaLinkService.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\OneDrive\\Software\\Vintage\\_GitHub\\RetroNFC\\RFMediaLinkService\\RFMediaLinkService.csproj",
+        "projectUniqueName": "C:\\dev\\RFMediaLink\\RFMediaLinkService\\RFMediaLinkService.csproj",
         "projectName": "RFMediaLinkService",
-        "projectPath": "D:\\OneDrive\\Software\\Vintage\\_GitHub\\RetroNFC\\RFMediaLinkService\\RFMediaLinkService.csproj",
+        "projectPath": "C:\\dev\\RFMediaLink\\RFMediaLinkService\\RFMediaLinkService.csproj",
         "packagesPath": "C:\\Users\\aaron\\.nuget\\packages\\",
-        "outputPath": "D:\\OneDrive\\Software\\Vintage\\_GitHub\\RetroNFC\\RFMediaLinkService\\obj\\",
+        "outputPath": "C:\\dev\\RFMediaLink\\RFMediaLinkService\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

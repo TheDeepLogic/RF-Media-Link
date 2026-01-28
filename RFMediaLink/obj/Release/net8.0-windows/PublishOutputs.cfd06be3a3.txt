@@ -1,0 +1,5 @@
+c:\dev\RFMediaLink\RFMediaLink\bin\Release\net8.0-windows\publish\RFMediaLink.exe
+c:\dev\RFMediaLink\RFMediaLink\bin\Release\net8.0-windows\publish\RFMediaLink.dll
+c:\dev\RFMediaLink\RFMediaLink\bin\Release\net8.0-windows\publish\RFMediaLink.deps.json
+c:\dev\RFMediaLink\RFMediaLink\bin\Release\net8.0-windows\publish\RFMediaLink.runtimeconfig.json
+c:\dev\RFMediaLink\RFMediaLink\bin\Release\net8.0-windows\publish\RFMediaLink.pdb

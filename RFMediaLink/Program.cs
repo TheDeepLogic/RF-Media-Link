@@ -24,6 +24,7 @@ class RFMediaLinkConfigurator
     private static JsonElement Catalog => CatalogDoc?.RootElement ?? default;
     private static JsonElement Emulators => EmulatorsDoc?.RootElement ?? default;
 
+    [STAThread]
     static void Main(string[] args)
     {
         FindConfigDir();
