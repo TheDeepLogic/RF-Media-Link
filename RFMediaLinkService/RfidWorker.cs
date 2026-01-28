@@ -128,6 +128,15 @@ public class RfidWorker : BackgroundService
             _logger.LogInformation("Serial port initialized");
             await base.StartAsync(cancellationToken);
             _logger.LogInformation("RF Media Link Service started successfully");
+            
+            // Schedule a delayed catalog reload to catch any changes made during startup
+            // This ensures we pick up the latest catalog even if FileSystemWatcher missed events
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(2000); // Wait 2 seconds after startup
+                _logger.LogInformation("Performing post-startup catalog reload...");
+                ReloadCatalogFromDisk();
+            });
         }
         catch (Exception ex)
         {
@@ -237,12 +246,24 @@ public class RfidWorker : BackgroundService
         {
             _catalogWatcher = new FileSystemWatcher(_basePath, "catalog.json")
             {
-                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size,
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.CreationTime,
                 EnableRaisingEvents = false  // Disable initially to avoid race conditions
             };
 
             _catalogWatcher.Changed += (sender, e) =>
             {
+                _logger.LogInformation("Catalog file change detected");
+                // Debounce: multiple change events fire rapidly
+                _catalogReloadTimer?.Dispose();
+                _catalogReloadTimer = new System.Threading.Timer(_ =>
+                {
+                    ReloadCatalogFromDisk();
+                }, null, TimeSpan.FromMilliseconds(500), Timeout.InfiniteTimeSpan);
+            };
+
+            _catalogWatcher.Created += (sender, e) =>
+            {
+                _logger.LogInformation("Catalog file created");
                 // Debounce: multiple change events fire rapidly
                 _catalogReloadTimer?.Dispose();
                 _catalogReloadTimer = new System.Threading.Timer(_ =>
