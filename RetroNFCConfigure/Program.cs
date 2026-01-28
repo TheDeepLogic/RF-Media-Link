@@ -13,9 +13,13 @@ class RetroNFCConfigurator
     private static string CatalogFile;
     private static string EmulatorsFile;
     
-    private static JsonElement Config;
-    private static JsonElement Catalog;
-    private static JsonElement Emulators;
+    private static JsonDocument? ConfigDoc;
+    private static JsonDocument? CatalogDoc;
+    private static JsonDocument? EmulatorsDoc;
+    
+    private static JsonElement Config => ConfigDoc?.RootElement ?? default;
+    private static JsonElement Catalog => CatalogDoc?.RootElement ?? default;
+    private static JsonElement Emulators => EmulatorsDoc?.RootElement ?? default;
 
     static void Main(string[] args)
     {
@@ -53,19 +57,31 @@ class RetroNFCConfigurator
     {
         if (File.Exists(ConfigFile))
         {
-            try { Config = JsonDocument.Parse(File.ReadAllText(ConfigFile)).RootElement; }
+            try 
+            { 
+                ConfigDoc?.Dispose();
+                ConfigDoc = JsonDocument.Parse(File.ReadAllText(ConfigFile)); 
+            }
             catch { }
         }
 
         if (File.Exists(CatalogFile))
         {
-            try { Catalog = JsonDocument.Parse(File.ReadAllText(CatalogFile)).RootElement; }
+            try 
+            { 
+                CatalogDoc?.Dispose();
+                CatalogDoc = JsonDocument.Parse(File.ReadAllText(CatalogFile)); 
+            }
             catch { }
         }
 
         if (File.Exists(EmulatorsFile))
         {
-            try { Emulators = JsonDocument.Parse(File.ReadAllText(EmulatorsFile)).RootElement; }
+            try 
+            { 
+                EmulatorsDoc?.Dispose();
+                EmulatorsDoc = JsonDocument.Parse(File.ReadAllText(EmulatorsFile)); 
+            }
             catch { }
         }
     }
@@ -365,9 +381,9 @@ class RetroNFCConfigurator
             if (argDef.TryGetProperty("choices", out var choicesElement) && choicesElement.ValueKind == JsonValueKind.Array)
             {
                 var choices = new List<string>();
-                foreach (var choice in choicesElement.EnumerateArray())
+                foreach (var choiceItem in choicesElement.EnumerateArray())
                 {
-                    choices.Add(choice.GetString() ?? "");
+                    choices.Add(choiceItem.GetString() ?? "");
                 }
 
                 Console.WriteLine("  Options:");

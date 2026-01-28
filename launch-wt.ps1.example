@@ -1,6 +1,0 @@
-# Launch RetroNFC in Windows Terminal
-# This ensures proper window focus behavior
-# Copy this file to launch-wt.ps1 and update $pythonPath to your Python installation
-$pythonPath = "python"  # Update this to your Python path (e.g., "C:/Python310/python.exe" or just "python" if in PATH)
-$scriptPath = Join-Path $PSScriptRoot "main.py"
-Start-Process wt.exe -ArgumentList "-w 0 new-tab --title `"RetroNFC`" `"$pythonPath`" `"$scriptPath`"" -WindowStyle Minimized

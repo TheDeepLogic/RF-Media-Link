@@ -1,0 +1,5 @@
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\bin\Release\net8.0\publish\RetroNFCConfigure.exe
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\bin\Release\net8.0\publish\RetroNFCConfigure.dll
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\bin\Release\net8.0\publish\RetroNFCConfigure.deps.json
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\bin\Release\net8.0\publish\RetroNFCConfigure.runtimeconfig.json
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\bin\Release\net8.0\publish\RetroNFCConfigure.pdb

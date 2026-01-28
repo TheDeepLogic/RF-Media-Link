@@ -1,0 +1,5 @@
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\obj\Debug\net8.0\RetroNFCConfigure.GeneratedMSBuildEditorConfig.editorconfig
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\obj\Debug\net8.0\RetroNFCConfigure.AssemblyInfoInputs.cache
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\obj\Debug\net8.0\RetroNFCConfigure.AssemblyInfo.cs
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\obj\Debug\net8.0\RetroNFCConfigure.csproj.CoreCompileInputs.cache
+D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCConfigure\obj\Debug\net8.0\RetroNFCConfigure.sourcelink.json

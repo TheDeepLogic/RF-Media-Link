@@ -1,418 +1,575 @@
 # RetroNFC - RFID Emulator Launcher
 
-**RetroNFC** is a universal RFID launcher system for retro computing and media. Scan RFID tags to launch emulators, open files, navigate to URLs, or execute system commands. Perfect for physical media collections (floppy disks, cartridges, VHS tapes) and retro enthusiasts.
+**RetroNFC** is a Windows service that launches retro emulators, files, and commands via RFID/NFC tags. Scan a tag to instantly launch your favorite retro computer emulation with the correct disk images, settings, and configuration. Perfect for physical media collections (floppy disks, cartridges, cassettes) and vintage computing enthusiasts.
+
+> **AI-Assisted Development Notice**  
+> This project was developed with GitHub Copilot assistance (Claude Sonnet 4.5). The codebase and documentation were AI-generated based on specifications and iterative refinement. While functional and tested, please review code before production use and submit pull requests for any corrections.
+
+---
 
 ## Features
 
-- **RFID Tag Management**: Scan NFC/RFID tags and map them to actions
-- **Emulator Support**: Launch any emulator with customizable arguments
-- **Generic Emulation**: Comes with AppleWin preset, but works with any emulator (MAME, Atari, etc.)
-- **Flexible Actions**: File execution, URLs, shell commands, hotkeys, system commands
-- **Configurable Arguments**: Define argument types (file, text, choice, toggle) for emulator customization
-- **Batch Adding**: Add multiple tags with the same command type
-- **JSON-Based**: Easy to backup, version control, and customize
+- **Windows Service**: Runs in background monitoring RFID reader
+- **Console Configuration Tool**: Easy tag and emulator management
+- **Multiple Emulator Support**: AppleWin, Stella, SNES9x, Classic99, VICE, TRS-80 GP
+- **Flexible Actions**: Launch emulators, open files, navigate URLs, run commands
+- **Customizable Arguments**: File paths, choices, toggles, and flags per emulator
+- **Hot Reload**: Add tags via configurator while service runs - no restart needed
+- **JSON Configuration**: Easy backup, version control, and manual editing
 
-> **AI-Assisted Development Notice**
-> 
-> Hello, fellow human! My name is Aaron Smith. I've been in the IT field for nearly three decades and have extensive experience as both an engineer and architect. While I've had various projects in the past that have made their way into the public domain, I've always wanted to release more than I could. I write useful utilities all the time that aid me with my vintage computing and hobbyist electronic projects, but rarely publish them. I've had experience in both the public and private sectors and can unfortunately slip into treating each one of these as a fully polished cannonball ready for market. It leads to scope creep and never-ending updates to documentation.
-> 
-> With that in-mind, I've leveraged GitHub Copilot to create or enhance the code within this repository and, outside of this notice, all related documentation. While I'd love to tell you that I pore over it all and make revisions, that just isn't the case. To prevent my behavior from keeping these tools from seeing the light of day, I've decided to do as little of that as possible! My workflow involves simply stating the need to GitHub Copilot, providing reference material where helpful, running the resulting code, and, if there is an actionable output, validating that it's correct. If I find a change I'd like to make, I describe it to Copilot. I've been leveraging the Agent CLI and it takes care of the core debugging.
->
-> With all that being said, please keep in-mind that what you read and execute was created by Claude Sonnet 4.5. There may be mistakes. If you find an error, please feel free to submit a pull request with a correction!
+---
 
 ## Quick Start
 
+### Requirements
+
+- **Windows 10/11** (Windows Service requires .NET 8.0 runtime)
+- **RFID Reader**: Any USB serial RFID/NFC reader (PN532, RC522, etc.)
+- **Emulators**: Install your chosen retro emulators
+
 ### Installation
 
-1. **Python 3.7+** is required
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-### Setup
-
-1. Connect your RFID reader to your computer via USB serial
-2. **IMPORTANT - Windows Users**: For proper window focus behavior, launch from **Windows Terminal** (not cmd.exe). Create a shortcut for easy minimized launching:
-   
-   **First-time setup:**
-   - Copy `launch-wt.ps1.example` to `launch-wt.ps1`
-   - Edit `launch-wt.ps1` and update `$pythonPath` to your Python installation path
-   
-   **Create a Windows Shortcut:**
-   - Right-click on your desktop or in a folder → New → Shortcut
-   - **Target:** `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File "D:\path\to\RetroNFC\launch-wt.ps1"`
-     - Replace `D:\path\to\RetroNFC` with your actual project path
-   - **Start in:** `D:\path\to\RetroNFC` (your project path)
-   - Click Next, name it "RetroNFC", click Finish
-   - Right-click the shortcut → Properties → Run: **Minimized** → OK
-   
-   Now double-click the shortcut to launch RetroNFC minimized with proper focus handling.
-   
-   **Alternative - Run directly in Windows Terminal:**
+1. **Clone or download** this repository
+2. **Build the projects** (or use pre-built binaries from releases):
    ```powershell
-   wt.exe python main.py
+   cd RetroNFCService
+   dotnet publish -c Release
+   
+   cd ..\RetroNFCConfigure
+   dotnet publish -c Release
    ```
-   **Note**: Running from cmd.exe or older consoles may cause keyboard focus issues with dialogs and launched emulators.
 
-3. On first launch, RetroNFC will create `config.json` with default serial port settings
-4. If needed, update `serial_port` in `config.json` to match your RFID reader's COM port (e.g., `COM3`, `COM5`)
+3. **Run the installer** (as Administrator):
+   ```powershell
+   cd deployment
+   .\install-retrof.ps1
+   ```
+   
+   This will:
+   - Copy binaries to `%LOCALAPPDATA%\RetroNFC\`
+   - Install the Windows Service
+   - Create configuration files
 
-### Basic Commands
+4. **Configure the serial port**:
+   - Edit `%LOCALAPPDATA%\RetroNFC\config.json`
+   - Set `serial_port` to your RFID reader's COM port (e.g., `"COM3"`)
+   - Set `baud_rate` if different from 115200
 
-Once running, you can:
+5. **Start the service**:
+   ```powershell
+   Start-Service RetroNFC
+   ```
 
-| Key | Action |
-|-----|--------|
-| `a` | Add a new NFC tag |
-| `e` | Add/Edit emulator definitions |
-| `q` | Quit |
-| `done` | Exit batch mode |
+### First Tag Setup
 
-## Usage Examples
+1. **Run the configurator**:
+   ```powershell
+   cd deployment
+   .\configure.bat
+   ```
 
-### Adding an Emulator Tag
+2. **Add a tag**:
+   - Press `A` to add tag
+   - Place RFID tag on reader (it will auto-scan)
+   - Or press Enter to type UID manually
+   - Enter a name for the tag
+   - Select action type `1` for emulator
+   - Choose emulator from list
+   - Configure arguments:
+     - For **choice** fields (like model), select from numbered menu
+     - For **file** fields (like disk images), enter full path or press Enter to skip
+     - For **toggle** fields (like fullscreen), enter `true`/`false` or press Enter for default
+   - Press `S` or `D` to skip/default remaining fields
+   - Confirm save
 
-1. Press `a` to add a tag
-2. Choose mode: Single or Batch
-3. Choose action type: `emulator`, `file`, `url`, `command`, `hotkey`, or `shell`
-4. If emulator: Select which emulator to use (e.g., AppleWin)
-5. Scan your RFID tag
-6. Configure emulator arguments (which floppies, hard drives, options, etc.)
-7. Tag is now mapped in `catalog.json`
+3. **Test the tag**:
+   - Scan the RFID tag
+   - Emulator should launch with configured settings
 
-### Executing a Tag
-
-Simply scan the RFID tag with your reader. RetroNFC will:
-1. Recognize the UID
-2. Load the action from `catalog.json`
-3. Execute the appropriate action (launch emulator, open file, etc.)
-
-### Creating a Custom Emulator
-
-Press `e` to open the Add Emulator dialog:
-1. Enter an emulator ID (e.g., `mame`)
-2. Enter a display name (e.g., `MAME Arcade`)
-3. Browse to the executable (e.g., `C:\mame\mame.exe`)
-4. Click Create
-
-Then edit `emulators.json` to add custom arguments:
-
-```json
-{
-  "mame": {
-    "name": "MAME Arcade",
-    "executable": "C:\\mame\\mame.exe",
-    "arguments": [
-      {
-        "name": "rom",
-        "type": "file",
-        "label": "ROM File",
-        "flag": "",
-        "required": true
-      },
-      {
-        "name": "fullscreen",
-        "type": "toggle",
-        "label": "Fullscreen",
-        "flag": "-f"
-      }
-    ]
-  }
-}
-```
+---
 
 ## Configuration Files
 
-### catalog.json
+All files are stored in `%LOCALAPPDATA%\RetroNFC\`:
 
-Maps RFID UIDs to actions:
-
+### `config.json`
 ```json
 {
-  "041234567890ABC": {
-    "emulator": "applewin",
-    "config": {
-      "s6d1": "C:\\disks\\game1.dsk",
-      "fullscreen": true
+  "serial_port": "COM3",
+  "baud_rate": 115200,
+  "default_emulator": "applewin"
+}
+```
+
+### `catalog.json`
+Maps RFID UIDs to actions:
+```json
+{
+  "66 DC 6E 05": {
+    "name": "Apple DOS 3.3",
+    "action_type": "emulator",
+    "action_target": "applewin",
+    "action_args": {
+      "model": "apple2ee",
+      "s6d1": "D:\\Disks\\DOS 3.3.dsk",
+      "fullscreen": "True",
+      "power_on": "True"
     }
   }
 }
 ```
 
-### emulators.json
-
-Defines available emulators and their configurable arguments:
-
+### `emulators.json`
+Defines available emulators and their arguments:
 ```json
 {
   "applewin": {
     "name": "AppleWin",
-    "executable": "C:\\AppleWin\\AppleWin.exe",
+    "executable": "D:\\Emulators\\AppleWin\\AppleWin-x64.exe",
     "arguments": [
       {
         "name": "model",
         "type": "choice",
-        "label": "Apple II Model",
+        "label": "Model",
+        "flag": "-model",
         "choices": ["apple2", "apple2p", "apple2e", "apple2ee"],
-        "default": "apple2e"
+        "default": "apple2ee"
       },
       {
         "name": "s6d1",
         "type": "file",
         "label": "Slot 6 Drive 1",
         "flag": "-d1"
+      },
+      {
+        "name": "fullscreen",
+        "type": "toggle",
+        "label": "Fullscreen",
+        "flag": "-f",
+        "default": true
       }
     ]
   }
 }
 ```
 
-### config.json
+---
 
-User preferences and serial configuration (auto-generated):
+## Emulator Argument Types
 
-```json
-{
-  "serial_port": "COM3",
-  "serial_baud": 115200,
-  "last_browse_path": "C:\\disks",
-  "last_command_type": "emulator",
-  "last_mode": "single"
-}
-```
-
-Edit `serial_port` to match your RFID reader's COM port. Default is `COM3`, but may vary depending on your hardware.
-
-## Argument Types
-
-When defining emulator arguments in `emulators.json`, use these types:
+When configuring tags, arguments support different types:
 
 | Type | Description | Example |
 |------|-------------|---------|
-| `file` | File picker dialog | ROM file, disk image |
-| `text` | Text input field | Model name, custom options |
-| `choice` | Dropdown selector | AppleWin model (apple2/2e/2ee) |
-| `toggle` | Checkbox (on/off) | Fullscreen, power-on flags |
+| **file** | Full path to a disk/ROM file | `D:\Disks\game.dsk` |
+| **choice** | Select from predefined options | Model: `apple2ee` |
+| **toggle** | Boolean flag | Fullscreen: `True` |
+| **flag** | Value passed with flag | `-rom cartridge.bin` |
+| **positional** | Value without flag | `game.rom` |
 
-## RFID Reader Setup
+The configurator automatically shows:
+- **Choice fields** as numbered menus
+- **Toggle fields** with true/false prompts
+- **File fields** with path input
+- **Defaults** for all fields (press Enter to use)
 
-RetroNFC works with any RFID reader that outputs UIDs via serial port in the format: `UID: {hex_string}`
+### Quick Entry Mode
 
-**Supported Hardware:**
-- MFRC522 readers (most common, ~$5-15)
-- Microcontrollers: ESP32-C3, Raspberry Pi Pico (RP2040), Arduino, etc.
+When adding tags, use shortcuts to speed up configuration:
+- Press **Enter** alone: Use default value for field
+- Type **S** after a field: Skip rest with empty values
+- Type **D** after a field: Default rest with their default values
 
-**Getting Started:**
+---
 
-1. Choose your microcontroller platform
-2. Use one of the example sketches/scripts in [host_examples/](host_examples/) directory
-3. Upload to your microcontroller
-4. Connect to your PC via USB
-5. Update `serial_port` in `config.json` if needed
+## Included Emulators
 
-For detailed setup instructions and example code, see [host_examples/README.md](host_examples/README.md)
+RetroNFC comes preconfigured with:
 
-## Project Structure
+- **AppleWin**: Apple II emulator
+- **Stella**: Atari 2600 emulator
+- **SNES9x**: Super Nintendo emulator
+- **Classic99**: TI-99/4A emulator
+- **VICE**: Commodore 64 emulator
+- **TRS-80 GP**: TRS-80 emulator
+
+To add more emulators, edit `emulators.json` manually with the same structure.
+
+---
+
+## How It Works
+
+### Architecture
 
 ```
-_RFIDLAUNCHER/
-├── main.py              # Main application
-├── catalog.json         # UID → Action mappings (user data)
-├── config.json          # User preferences (auto-generated)
-├── emulators.json       # Emulator definitions
-├── requirements.txt     # Python dependencies
-├── .gitignore          # Git ignore patterns
-└── README.md           # This file
+┌─────────────────┐
+│  RFID Reader    │ USB Serial
+│  (PN532/RC522)  │──────────┐
+└─────────────────┘          │
+                             ▼
+                    ┌──────────────────┐
+                    │ RetroNFC Service │
+                    │  (Background)    │
+                    └──────────────────┘
+                             │
+                    ┌────────┴────────┐
+                    │                 │
+         ┌──────────▼─────────┐  ┌───▼──────┐
+         │  catalog.json      │  │ last_    │
+         │  (UID→Action map)  │  │ scan.txt │
+         └────────────────────┘  └──────────┘
+                    │                 │
+         ┌──────────▼─────────┐      │
+         │ emulators.json     │      │
+         │ (Emulator configs) │      │
+         └────────────────────┘      │
+                    │                 │
+                    │            ┌────▼────────┐
+                    └───────────►│ Configurator│
+                                 │   (Tool)    │
+                                 └─────────────┘
 ```
 
-## Architecture
+1. **Service monitors** serial port for RFID reader data
+2. **On tag scan**:
+   - Writes UID to `last_scan.txt` (for configurator)
+   - **Reloads `catalog.json` from disk** (hot reload - no service restart needed!)
+   - Looks up UID in catalog
+   - Loads emulator config from `emulators.json`
+   - Builds command-line arguments
+   - Launches emulator process
+3. **Configurator** reads `last_scan.txt` to detect scans while adding tags
 
-### Command Flow
+### Scanning Workflow
 
-1. **Serial Listener**: Reads from RFID reader (COM9)
-2. **UID Recognition**: When UID detected, lookup in catalog.json
-3. **Action Execution**: Execute mapped action (emulator, file, URL, etc.)
-4. **Dialogue System**: tkinter-based dialogs for configuration and user input
+The RFID reader sends data via serial in this format:
+```
+UID: 66 DC 6E 05
+Type: Mifare Classic 1K
+```
 
-### Emulator Execution
+The service parses the UID, looks it up in `catalog.json`, and executes the mapped action.
 
-When launching an emulator:
-1. Load emulator definition from `emulators.json`
-2. Show configuration dialog with argument fields
-3. Build command-line arguments based on user input
-4. Execute emulator with subprocess.Popen()
+---
 
-### Toggle Arguments
+## Configurator Usage
 
-For toggle-type arguments (flags):
-- If checked: Add `{flag} {value}` to command line (e.g., `-f true`)
-- If unchecked: Omit the flag entirely
+Run `configure.bat` or `RetroNFCConfigure.exe` directly.
 
-### Argument Order
+### Main Menu
 
-Arguments are executed in the order they appear in `emulators.json`. This ensures positional arguments work correctly.
+```
+═══════════════════════════════════════════════════════
+  RetroNFC Configuration Tool
+═══════════════════════════════════════════════════════
+Config Location: C:\Users\...\AppData\Local\RetroNFC
+
+1. Manage Tags
+2. View Emulators
+3. Settings
+4. Exit
+```
+
+### Manage Tags
+
+Shows all configured tags:
+```
+═══════════════════════════════════════════════════════
+  Manage RFID Tags
+═══════════════════════════════════════════════════════
+
+1. [66 DC 6E 05] Apple DOS 3.3
+2. [AA BB CC DD] Ultima IV
+
+A. Add Tag
+D. Delete Tag
+B. Back to Menu
+```
+
+**After adding a tag, it appears immediately in the list - no restart needed!**
+
+### Adding Tags
+
+1. **Place tag on reader** - Auto-scans (or press Enter to type manually)
+2. **Enter tag name** - Descriptive name for your reference
+3. **Select action type**:
+   - `1` - Emulator (launch emulator with arguments)
+   - `2` - File (open a file)
+   - `3` - URL (open in browser)
+   - `4` - Command (run shell command)
+4. **Configure** based on action type:
+   - **Emulator**: Select from list, configure arguments with menus for choices
+   - **File/URL/Command**: Enter target path/URL/command
+
+### Deleting Tags
+
+1. Press `D` from Manage Tags menu
+2. Enter UID of tag to delete
+3. Confirm deletion
+
+---
+
+## Service Management
+
+### Start/Stop/Restart
+
+```powershell
+# Start service
+Start-Service RetroNFC
+
+# Stop service
+Stop-Service RetroNFC
+
+# Restart service (if needed for config.json or emulators.json changes)
+Restart-Service RetroNFC
+
+# Check status
+Get-Service RetroNFC
+```
+
+**Note**: catalog.json changes are hot-reloaded automatically - no service restart needed!
+
+### View Logs
+
+Service logs to Windows Event Log:
+
+```powershell
+# View recent logs
+Get-EventLog -LogName Application -Source RetroNFC -Newest 50
+
+# Real-time monitoring
+Get-EventLog -LogName Application -Source RetroNFC -Newest 1 -After (Get-Date).AddMinutes(-1)
+```
+
+### Update Service
+
+After rebuilding the service DLL:
+
+```powershell
+cd deployment
+.\update-service.ps1
+```
+
+This stops the service, copies new binaries, and restarts.
+
+### Uninstall
+
+```powershell
+cd deployment
+.\uninstall-retrof.bat
+```
+
+---
 
 ## Troubleshooting
 
-### Serial Port Issues
+### Service won't start
 
-**Problem**: "Opening COM3... [hangs]" or "Cannot open serial port"
+1. Check serial port in `config.json` matches your RFID reader
+2. Verify .NET 8.0 Runtime is installed
+3. Check Event Viewer for errors:
+   ```powershell
+   Get-EventLog -LogName Application -Source RetroNFC -Newest 10
+   ```
 
-**Solution**: Update `serial_port` in `config.json` to match your RFID reader's COM port. You can check available ports using:
-- Windows: Device Manager → Ports (COM & LPT)
-- Linux: `ls /dev/ttyUSB*` or `ls /dev/ttyACM*`
-- macOS: `ls /dev/tty.usbserial*`
+### Tag not recognized
 
-### Dialog Positioning
+1. Verify tag is in `catalog.json`
+2. Check UID format matches (spaces, uppercase: `66 DC 6E 05`)
+3. Check Event Log - service logs "DEBUG: Catalog keys:" and "DEBUG: Looking for UID:" for comparison
+4. Service automatically reloads catalog on each scan - no restart needed
 
-**Problem**: Dialogs appear off-screen
+### Emulator won't launch
 
-**Solution**: The code auto-centers on your primary monitor. For multi-monitor setups, you may need to adjust the geometry calculations.
+1. Verify `executable` path in `emulators.json` is correct and points to the actual .exe file
+2. Check disk/ROM file paths in `catalog.json` - must be full paths
+3. Test emulator manually with same arguments
+4. Check Event Log for "Error launching" messages with exception details
 
-### Emulator Not Found
+### Configurator doesn't see scans
 
-**Problem**: "Error: No such file or directory"
+1. Verify service is running: `Get-Service RetroNFC`
+2. Check that `last_scan.txt` is being created in `%LOCALAPPDATA%\RetroNFC\`
+3. Restart service if needed
 
-**Solution**: Verify the executable path in `emulators.json` exists. Use Windows UNC paths for network shares (e.g., `\\\\server\\share\\app.exe`)
+### New tags don't appear after adding
 
-## Development
+- This has been fixed - configurator now properly reloads data after saving
+- Tags appear immediately in the list
+- If you experience this issue, you may be running an older build
 
-### Adding a New Action Type
+---
 
-1. Add case in `add_tag_interactive()` function
-2. Add case in `execute_action()` function
-3. Update `prompt_command_type()` to include new type
+## Advanced Topics
 
-### Modifying Emulator Arguments
+### Custom Emulators
 
-Edit `emulators.json` directly. The structure is:
+To add a new emulator, edit `emulators.json`:
 
 ```json
 {
-  "emulator_id": {
-    "name": "Display Name",
-    "executable": "path/to/executable.exe",
+  "myemulator": {
+    "name": "My Emulator",
+    "executable": "C:\\Path\\To\\emulator.exe",
     "arguments": [
       {
-        "name": "arg_name",
-        "type": "file|text|choice|toggle",
-        "label": "User-friendly label",
-        "flag": "-flag",              // optional for positional args
-        "choices": ["option1", "option2"],  // only for choice type
-        "default": "value",           // optional
-        "required": true              // optional
+        "name": "rom_file",
+        "type": "file",
+        "label": "ROM File",
+        "flag": "-rom",
+        "required": true
+      },
+      {
+        "name": "fullscreen",
+        "type": "toggle",
+        "label": "Fullscreen",
+        "flag": "-fullscreen",
+        "default": false
       }
     ]
   }
 }
 ```
 
+Then restart the service: `Restart-Service RetroNFC`
+
+### Non-Emulator Actions
+
+You can map tags to other actions by editing `catalog.json`:
+
+**Open a file:**
+```json
+{
+  "AA BB CC DD": {
+    "name": "Documentation",
+    "action_type": "file",
+    "action_target": "D:\\Docs\\manual.pdf"
+  }
+}
+```
+
+**Open a URL:**
+```json
+{
+  "11 22 33 44": {
+    "name": "Retro Gaming Site",
+    "action_type": "url",
+    "action_target": "https://www.retrogaming.com"
+  }
+}
+```
+
+**Run a command:**
+```json
+{
+  "AA BB CC DD": {
+    "name": "Backup Script",
+    "action_type": "command",
+    "action_target": "C:\\Scripts\\backup.bat"
+  }
+}
+```
+
+### Backup and Restore
+
+All configuration is in JSON files in `%LOCALAPPDATA%\RetroNFC\`:
+
+```powershell
+# Backup
+Copy-Item "$env:LOCALAPPDATA\RetroNFC\*.json" "D:\Backup\"
+
+# Restore
+Copy-Item "D:\Backup\*.json" "$env:LOCALAPPDATA\RetroNFC\"
+Restart-Service RetroNFC
+```
+
+---
+
+## Development
+
+### Project Structure
+
+```
+RetroNFC/
+├── RetroNFCService/          # Windows Service (C# .NET 8.0)
+│   ├── RfidWorker.cs         # Core service logic
+│   ├── Program.cs            # Service host setup
+│   └── RetroNFCService.csproj
+├── RetroNFCConfigure/        # Configuration tool (C# .NET 8.0)
+│   ├── Program.cs            # Console UI
+│   └── RetroNFCConfigure.csproj
+├── deployment/               # Installation scripts & binaries
+│   ├── install-retrof.ps1
+│   ├── update-service.ps1
+│   ├── uninstall-retrof.bat
+│   └── configure.bat
+├── host_examples/            # Example RFID reader firmware
+│   ├── esp32c3_rfid_reader_serial_only.ino
+│   ├── esp32c3_rfid_reader_with_display.ino
+│   └── rp2040_rfid_reader_micropython.py
+├── BOM.md                    # Hardware bill of materials
+└── README.md                 # This file
+```
+
+### Building from Source
+
+**Requirements:**
+- .NET 8.0 SDK
+- Windows 10/11
+
+**Build steps:**
+
+```powershell
+# Build service
+cd RetroNFCService
+dotnet publish -c Release
+
+# Build configurator
+cd ..\RetroNFCConfigure
+dotnet publish -c Release
+
+# Copy to deployment
+Copy-Item "RetroNFCService\bin\Release\net8.0-windows\publish\*" "deployment\build\" -Recurse -Force
+```
+
+### Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+---
+
+## Hardware
+
+See [BOM.md](BOM.md) for hardware recommendations and wiring diagrams for building your own RFID reader.
+
+Compatible RFID modules:
+- PN532 (I2C/SPI/UART)
+- RC522 (SPI)
+- RDM6300 (UART)
+
+Compatible microcontrollers:
+- ESP32-C3
+- RP2040 (Raspberry Pi Pico)
+- Arduino compatible boards
+
+Example firmware is provided in the `host_examples/` directory for ESP32-C3 and RP2040.
+
+---
+
 ## License
 
-RetroNFC is provided as-is for retro computing enthusiasts. Use at your own discretion.
+This project is provided as-is for hobbyist and personal use.
 
 ---
 
-## Changelog
+## Credits
 
-### Version 2.0.0 (Current)
+- **Author**: Aaron Smith
+- **AI Assistant**: Claude Sonnet 4.5 via GitHub Copilot
+- **Emulator Developers**: AppleWin, Stella, SNES9x, Classic99, VICE, TRS-80 GP teams
 
-**Universal Emulator System** - Refactored from AppleWin-only launcher to support any emulator.
-
-**Major Changes:**
-- Generic emulator system with JSON-based configuration
-- Flexible argument types: file, text, choice, toggle
-- AppleWin preset with 14 configurable arguments
-- Add/edit emulator definitions via GUI (`e` command)
-- Batch tagging mode for efficient adding
-- Fully JSON-based configuration (catalog, config, emulators)
-
-**New Commands:**
-- `e` - Add/Edit emulator definitions
-
----
-
-## Architecture Overview
-
-```
-RFID Reader (USB CDC)
-       ↓
-    serial.Serial (config.json port)
-       ↓
-    main.py
-       ├─ Reads emulators.json
-       ├─ Reads/writes catalog.json
-       └─ Reads/writes config.json
-       ↓
-    execute_action()
-       ├─ File execution
-       ├─ URL launch
-       ├─ Hotkey execution
-       └─ Emulator launch (subprocess.Popen)
-```
-
-### Data Flow
-
-1. RFID reader scans tag → sends UID over serial
-2. main.py looks up UID in catalog.json
-3. If found: execute mapped action
-4. If not found: ask user to add to catalog
-5. For emulator actions:
-   - Load emulator definition from emulators.json
-   - Build command line from configuration
-   - Execute with subprocess.Popen()
-
----
-
-## Building the RFID Reader
-
-See [BOM.md](BOM.md) for hardware requirements.
-
-Included example sketches in `host_examples/`:
-- **ESP32-C3 (Arduino)** - with or without display
-- **Raspberry Pi Pico (MicroPython/CircuitPython)**
-- **Raspberry Pi Pico (C SDK)**
-
-See [host_examples/README.md](host_examples/README.md) for setup instructions.
-
----
-
-## Project Files
-
-| File | Purpose |
-|------|---------|
-| main.py | Main application (1,269 lines) |
-| emulators.json | Emulator definitions and AppleWin preset |
-| catalog.json | RFID UID → Action mappings (user data) |
-| config.json | User preferences (auto-generated) |
-| requirements.txt | Python dependencies (pyserial, pyautogui) |
-| .gitignore | Git configuration |
-| BOM.md | Hardware bill of materials |
-| EMULATOR_GUIDE.md | Guide for adding custom emulators |
-| ARCHITECTURE.md | Detailed system architecture and flow diagrams |
-
----
-
-## Tips & Tricks
-
-### Remember Last Selection
-- RetroNFC remembers your last browse path, command type, and single/batch mode
-- Settings saved in config.json
-
-### File Arguments vs Positional
-- **With flag** (`"flag": "-d1"`): produces `app.exe -d1 game.dsk`
-- **No flag** (`"flag": ""`): produces `app.exe game.dsk` (positional)
-
-### Batch Tagging
-- Press `a`, choose **Batch** mode
-- Select action type (e.g., emulator)
-- Type `done` to exit batch mode and stop scanning
-
-### Required vs Optional Arguments
-- Required fields must be filled or error dialog appears
-- Optional fields can be left blank and won't be added to command line
-
----
-
-**RetroNFC** - Making physical media digital, one scan at a time.
+For questions, issues, or contributions, please open an issue on GitHub.
