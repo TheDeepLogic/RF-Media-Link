@@ -10,12 +10,12 @@
 using System;
 using System.Reflection;
 
-[assembly: System.Reflection.AssemblyCompanyAttribute("RetroNFCService")]
+[assembly: System.Reflection.AssemblyCompanyAttribute("RetroNFCConfigure")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
 [assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fed3666a9e22c3d44381d6661b85c514581810aa")]
-[assembly: System.Reflection.AssemblyProductAttribute("RetroNFCService")]
-[assembly: System.Reflection.AssemblyTitleAttribute("RetroNFCService")]
+[assembly: System.Reflection.AssemblyProductAttribute("RetroNFCConfigure")]
+[assembly: System.Reflection.AssemblyTitleAttribute("RetroNFCConfigure")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
 [assembly: System.Runtime.Versioning.TargetPlatformAttribute("Windows7.0")]
 [assembly: System.Runtime.Versioning.SupportedOSPlatformAttribute("Windows7.0")]

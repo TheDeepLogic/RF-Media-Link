@@ -1,19 +1,19 @@
-# RetroNFC - RFID Emulator Launcher
+# RF Media Link - RFID Media Launcher
 
-**RetroNFC** is a Windows service that launches retro emulators, files, and commands via RFID/NFC tags. Scan a tag to instantly launch your favorite retro computer emulation with the correct disk images, settings, and configuration. Perfect for physical media collections (floppy disks, cartridges, cassettes) and vintage computing enthusiasts.
+**RF Media Link** is a Windows service that launches media applications, files, and commands via RFID tags. Scan a tag to instantly launch your media player with the correct content, application with specific parameters, or execute custom commands. Perfect for media libraries and content management workflows.
 
 > **AI-Assisted Development Notice**  
-> This project was developed with GitHub Copilot assistance (Claude Sonnet 4.5). The codebase and documentation were AI-generated based on specifications and iterative refinement. While functional and tested, please review code before production use and submit pull requests for any corrections.
+> This project was developed with GitHub Copilot assistance (Claude Haiku 4.5). The codebase and documentation were AI-generated based on specifications and iterative refinement. While functional and tested, please review code before production use and submit pull requests for any corrections.
 
 ---
 
 ## Features
 
 - **Windows Service**: Runs in background monitoring RFID reader
-- **Console Configuration Tool**: Easy tag and emulator management
-- **Multiple Emulator Support**: AppleWin, Stella, SNES9x, Classic99, VICE, TRS-80 GP
-- **Flexible Actions**: Launch emulators, open files, navigate URLs, run commands
-- **Customizable Arguments**: File paths, choices, toggles, and flags per emulator
+- **Console Configuration Tool**: Easy tag and application management
+- **Multiple Application Support**: Media players, file explorers, browsers, custom apps
+- **Flexible Actions**: Launch applications, open files, navigate URLs, run commands
+- **Customizable Arguments**: File paths, choices, toggles, and flags per application
 - **Hot Reload**: Add tags via configurator while service runs - no restart needed
 - **JSON Configuration**: Easy backup, version control, and manual editing
 
@@ -24,8 +24,8 @@
 ### Requirements
 
 - **Windows 10/11** (Windows Service requires .NET 8.0 runtime)
-- **RFID Reader**: Any USB serial RFID/NFC reader (PN532, RC522, etc.)
-- **Emulators**: Install your chosen retro emulators
+- **RFID Reader**: Any USB serial RFID tag reader (PN532, RC522, etc.)
+- **Applications**: Install your chosen media applications
 
 ### Installation
 
@@ -46,26 +46,28 @@
    ```
    
    This will:
-   - Copy binaries to `%LOCALAPPDATA%\RetroNFC\`
+   - Copy binaries to `%LOCALAPPDATA%\RFMediaLink\`
    - Install the Windows Service
+   - Create desktop and Start Menu shortcuts
    - Create configuration files
 
 4. **Configure the serial port**:
-   - Edit `%LOCALAPPDATA%\RetroNFC\config.json`
+   - Edit `%LOCALAPPDATA%\RFMediaLink\config.json`
    - Set `serial_port` to your RFID reader's COM port (e.g., `"COM3"`)
    - Set `baud_rate` if different from 115200
 
 5. **Start the service**:
    ```powershell
-   Start-Service RetroNFC
+   Start-Service "RF Media Link"
    ```
 
 ### First Tag Setup
 
 1. **Run the configurator**:
+   - Click the **RF Media Link** shortcut on your desktop, or
    ```powershell
-   cd deployment
-   .\configure.bat
+   cd %LOCALAPPDATA%\RFMediaLink
+   .\RFMediaLink.exe
    ```
 
 2. **Add a tag**:
@@ -73,31 +75,31 @@
    - Place RFID tag on reader (it will auto-scan)
    - Or press Enter to type UID manually
    - Enter a name for the tag
-   - Select action type `1` for emulator
-   - Choose emulator from list
+   - Select action type `1` for application
+   - Choose application from list
    - Configure arguments:
      - For **choice** fields (like model), select from numbered menu
-     - For **file** fields (like disk images), enter full path or press Enter to skip
-     - For **toggle** fields (like fullscreen), enter `true`/`false` or press Enter for default
-   - Press `S` or `D` to skip/default remaining fields
+     - For **file** fields (like media files), press `[B] Browse` to open file dialog or enter path
+     - For **toggle** fields, enter `true`/`false` or press Enter for default
+   - Press `S` at any prompt to skip remaining fields with defaults
    - Confirm save
 
 3. **Test the tag**:
    - Scan the RFID tag
-   - Emulator should launch with configured settings
+   - Application should launch with configured settings
 
 ---
 
 ## Configuration Files
 
-All files are stored in `%LOCALAPPDATA%\RetroNFC\`:
+All files are stored in `%LOCALAPPDATA%\RFMediaLink\`:
 
 ### `config.json`
 ```json
 {
   "serial_port": "COM3",
   "baud_rate": 115200,
-  "default_emulator": "applewin"
+  "default_app": "vlc"
 }
 ```
 
@@ -106,47 +108,44 @@ Maps RFID UIDs to actions:
 ```json
 {
   "66 DC 6E 05": {
-    "name": "Apple DOS 3.3",
-    "action_type": "emulator",
-    "action_target": "applewin",
+    "name": "Movie Collection",
+    "action_type": "app",
+    "action_target": "vlc",
     "action_args": {
-      "model": "apple2ee",
-      "s6d1": "D:\\Disks\\DOS 3.3.dsk",
-      "fullscreen": "True",
-      "power_on": "True"
+      "file": "D:\\Media\\Movies\\MyMovie.mp4"
     }
   }
 }
 ```
 
 ### `emulators.json`
-Defines available emulators and their arguments:
+Defines available applications and their arguments:
 ```json
 {
-  "applewin": {
-    "name": "AppleWin",
-    "executable": "D:\\Emulators\\AppleWin\\AppleWin-x64.exe",
+  "vlc": {
+    "name": "VLC Media Player",
+    "executable": "C:\\Program Files\\VideoLAN\\VLC\\vlc.exe",
     "arguments": [
       {
-        "name": "model",
-        "type": "choice",
-        "label": "Model",
-        "flag": "-model",
-        "choices": ["apple2", "apple2p", "apple2e", "apple2ee"],
-        "default": "apple2ee"
-      },
-      {
-        "name": "s6d1",
+        "name": "file",
         "type": "file",
-        "label": "Slot 6 Drive 1",
-        "flag": "-d1"
-      },
+        "label": "Media File",
+        "flag": ""
+      }
+    ]
+  },
+  "explorer": {
+    "name": "File Explorer",
+    "executable": "explorer.exe",
+    "arguments": [
       {
-        "name": "fullscreen",
-        "type": "toggle",
-        "label": "Fullscreen",
-        "flag": "-f",
-        "default": true
+        "name": "path",
+        "type": "file",
+        "label": "Folder Path",
+        "flag": ""
+      }
+    ]
+  },
       }
     ]
   }

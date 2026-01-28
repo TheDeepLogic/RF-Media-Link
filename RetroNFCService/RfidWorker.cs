@@ -106,6 +106,8 @@ public class RfidWorker : BackgroundService
     private Dictionary<string, Emulator>? _emulators;
     private Config? _config;
     private string _lineBuffer = "";
+    private FileSystemWatcher? _catalogWatcher;
+    private System.Threading.Timer? _catalogReloadTimer;
 
     public RfidWorker(ILogger<RfidWorker> logger)
     {
@@ -114,7 +116,7 @@ public class RfidWorker : BackgroundService
 
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("RetroNFC Service starting...");
+        _logger.LogInformation("RF Media Link Service starting...");
         try
         {
             _logger.LogInformation($"Base directory: {AppDomain.CurrentDomain.BaseDirectory}");
@@ -125,7 +127,7 @@ public class RfidWorker : BackgroundService
             InitializeSerialPort();
             _logger.LogInformation("Serial port initialized");
             await base.StartAsync(cancellationToken);
-            _logger.LogInformation("RetroNFC Service started successfully");
+            _logger.LogInformation("RF Media Link Service started successfully");
         }
         catch (Exception ex)
         {
@@ -137,7 +139,7 @@ public class RfidWorker : BackgroundService
     private void FindBasePath()
     {
         // ALWAYS use AppData for the service - that's where it's installed
-        var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RetroNFC");
+        var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RFMediaLink");
         
         if (Directory.Exists(appData))
         {
@@ -149,7 +151,7 @@ public class RfidWorker : BackgroundService
         // Fallback to other locations
         var paths = new[]
         {
-            @"C:\Program Files\RetroNFC",
+            @"C:\Program Files\RFMediaLink",
             AppDomain.CurrentDomain.BaseDirectory,
             Path.GetDirectoryName(AppDomain.CurrentDomain.BaseDirectory) ?? "",
             Path.GetDirectoryName(Path.GetDirectoryName(AppDomain.CurrentDomain.BaseDirectory)) ?? ""
@@ -220,6 +222,99 @@ public class RfidWorker : BackgroundService
             _config = new Config { SerialPort = "COM9", BaudRate = 115200 };
             _catalog = new();
             _emulators = new();
+        }
+
+        // Start watching catalog.json for changes
+        SetupCatalogWatcher();
+    }
+
+    private void SetupCatalogWatcher()
+    {
+        if (string.IsNullOrEmpty(_basePath))
+            return;
+
+        try
+        {
+            _catalogWatcher = new FileSystemWatcher(_basePath, "catalog.json")
+            {
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size,
+                EnableRaisingEvents = false  // Disable initially to avoid race conditions
+            };
+
+            _catalogWatcher.Changed += (sender, e) =>
+            {
+                // Debounce: multiple change events fire rapidly
+                _catalogReloadTimer?.Dispose();
+                _catalogReloadTimer = new System.Threading.Timer(_ =>
+                {
+                    ReloadCatalogFromDisk();
+                }, null, TimeSpan.FromMilliseconds(500), Timeout.InfiniteTimeSpan);
+            };
+
+            _catalogWatcher.EnableRaisingEvents = true;
+            _logger.LogInformation("Catalog file watcher started");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not start catalog file watcher");
+        }
+    }
+
+    private void ReloadCatalogFromDisk()
+    {
+        try
+        {
+            var catalogPath = Path.Combine(_basePath!, "catalog.json");
+            if (!File.Exists(catalogPath))
+                return;
+
+            // Check if file is being processed (contains PROCESSING marker)
+            string firstBytes = "";
+            int attempts = 0;
+            while (attempts < 20) // Wait up to 2 seconds
+            {
+                try
+                {
+                    using (var fs = File.Open(catalogPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    using (var reader = new StreamReader(fs))
+                    {
+                        firstBytes = reader.ReadLine() ?? "";
+                    }
+                    
+                    if (firstBytes.Contains("PROCESSING"))
+                    {
+                        System.Threading.Thread.Sleep(100);
+                        attempts++;
+                        continue;
+                    }
+                    else
+                    {
+                        break; // File is ready
+                    }
+                }
+                catch
+                {
+                    System.Threading.Thread.Sleep(100);
+                    attempts++;
+                }
+            }
+
+            // Read the complete file
+            string jsonContent = File.ReadAllText(catalogPath);
+            
+            // Parse and update catalog
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var newCatalog = JsonSerializer.Deserialize<Dictionary<string, CatalogEntry>>(jsonContent, options);
+            
+            if (newCatalog != null)
+            {
+                _catalog = newCatalog;
+                _logger.LogInformation($"Catalog reloaded from disk: {_catalog.Count} tags");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error auto-reloading catalog");
         }
     }
 
@@ -312,24 +407,12 @@ public class RfidWorker : BackgroundService
             _logger.LogError(ex, $"Failed to write scan file for {uid}");
         }
 
-        // Reload catalog from disk each time (in case configure tool updated it)
-        try
+        // Catalog is now auto-reloaded by FileSystemWatcher when file changes
+        // Just look up the UID in current _catalog
+        if (_logger.IsEnabled(LogLevel.Warning))
         {
-            var catalogPath = Path.Combine(_basePath!, "catalog.json");
-            if (File.Exists(catalogPath))
-            {
-                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                var catalogJson = File.ReadAllText(catalogPath);
-                var catalogDict = JsonSerializer.Deserialize<Dictionary<string, CatalogEntry>>(catalogJson, options);
-                _catalog = catalogDict ?? new();
-                _logger.LogWarning($"DEBUG: Reloaded catalog with {_catalog.Count} entries");
-                _logger.LogWarning($"DEBUG: Catalog keys: {string.Join(", ", _catalog.Keys)}");
-                _logger.LogWarning($"DEBUG: Looking for UID: '{uid}'");
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning($"DEBUG: Could not reload catalog: {ex.Message}");
+            _logger.LogWarning($"DEBUG: Catalog has {_catalog?.Count ?? 0} entries");
+            _logger.LogWarning($"DEBUG: Looking for UID: '{uid}'");
         }
 
         if (_catalog == null || !_catalog.TryGetValue(uid, out var entry))
@@ -537,9 +620,9 @@ public class RfidWorker : BackgroundService
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("RetroNFC Service stopping...");
+        _logger.LogInformation("RF Media Link Service stopping...");
         _serialPort?.Dispose();
         await base.StopAsync(cancellationToken);
-        _logger.LogInformation("RetroNFC Service stopped");
+        _logger.LogInformation("RF Media Link Service stopped");
     }
 }

@@ -2,7 +2,6 @@ D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCService\bin\Release\net8.0
 D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCService\bin\Release\net8.0-windows\publish\RetroNFCService.dll
 D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCService\bin\Release\net8.0-windows\publish\RetroNFCService.deps.json
 D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCService\bin\Release\net8.0-windows\publish\RetroNFCService.runtimeconfig.json
-D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCService\bin\Release\net8.0-windows\publish\RetroNFCService.pdb
 D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCService\bin\Release\net8.0-windows\publish\Microsoft.Extensions.Configuration.dll
 D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCService\bin\Release\net8.0-windows\publish\Microsoft.Extensions.Configuration.Abstractions.dll
 D:\OneDrive\Software\Vintage\_GitHub\RetroNFC\RetroNFCService\bin\Release\net8.0-windows\publish\Microsoft.Extensions.Configuration.Binder.dll

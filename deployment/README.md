@@ -16,7 +16,10 @@ The installer will:
 
 ## After Installation
 
-Run `configure.bat` to open the configuration tool and add/manage RFID tags.
+Run the configurator from Start Menu or use:
+```powershell
+& "$env:LOCALAPPDATA\RetroNFC\RetroNFCConfigure.exe"
+```
 
 ## Uninstallation
 
@@ -27,8 +30,6 @@ Right-click `uninstall-retrof.bat` and select "Run as administrator"
 - `install-retrof.bat` - Double-click installer (requires admin)
 - `install-retrof.ps1` - PowerShell installer script
 - `uninstall-retrof.bat` - Uninstaller script
-- `configure.bat` - Launches the configuration tool
-- `configure.py` - RFID tag configuration GUI
 - `build/` - Pre-compiled service executable and dependencies
 
 ## Troubleshooting

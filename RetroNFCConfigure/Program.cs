@@ -17,6 +17,9 @@ class RetroNFCConfigurator
     private static JsonDocument? CatalogDoc;
     private static JsonDocument? EmulatorsDoc;
     
+    private static FileSystemWatcher? _catalogWatcher;
+    private static System.Threading.Timer? _catalogReloadTimer;
+    
     private static JsonElement Config => ConfigDoc?.RootElement ?? default;
     private static JsonElement Catalog => CatalogDoc?.RootElement ?? default;
     private static JsonElement Emulators => EmulatorsDoc?.RootElement ?? default;
@@ -25,19 +28,68 @@ class RetroNFCConfigurator
     {
         FindConfigDir();
         LoadAllData();
+        SetupCatalogWatcher();
         MainMenu();
+    }
+
+    private static void SetupCatalogWatcher()
+    {
+        try
+        {
+            _catalogWatcher = new FileSystemWatcher(ConfigDir, "catalog.json")
+            {
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size,
+                EnableRaisingEvents = false
+            };
+
+            _catalogWatcher.Changed += (sender, e) =>
+            {
+                // Debounce rapid changes
+                _catalogReloadTimer?.Dispose();
+                _catalogReloadTimer = new System.Threading.Timer(_ =>
+                {
+                    ReloadCatalogFromDisk();
+                }, null, 300, System.Threading.Timeout.Infinite);
+            };
+
+            _catalogWatcher.EnableRaisingEvents = true;
+        }
+        catch { }
+    }
+
+    private static void ReloadCatalogFromDisk()
+    {
+        try
+        {
+            if (!File.Exists(CatalogFile))
+                return;
+
+            // Force flush
+            using (var fs = File.Open(CatalogFile, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                fs.Flush();
+            }
+
+            // Copy and read
+            var tempPath = Path.Combine(ConfigDir, $"catalog_reload_{Guid.NewGuid()}.json");
+            File.Copy(CatalogFile, tempPath, true);
+            CatalogDoc?.Dispose();
+            CatalogDoc = JsonDocument.Parse(File.ReadAllText(tempPath));
+            try { File.Delete(tempPath); } catch { }
+        }
+        catch { }
     }
 
     private static void FindConfigDir()
     {
-        string appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RetroNFC");
+        string appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RFMediaLink");
         if (Directory.Exists(appDataPath) && File.Exists(Path.Combine(appDataPath, "config.json")))
         {
             ConfigDir = appDataPath;
         }
         else
         {
-            string progFilesPath = @"C:\Program Files\RetroNFC";
+            string progFilesPath = @"C:\Program Files\RFMediaLink";
             if (Directory.Exists(progFilesPath) && File.Exists(Path.Combine(progFilesPath, "config.json")))
             {
                 ConfigDir = progFilesPath;
@@ -55,12 +107,22 @@ class RetroNFCConfigurator
 
     private static void LoadAllData()
     {
+        // Force flush and copy files to ensure fresh data from disk
         if (File.Exists(ConfigFile))
         {
             try 
             { 
+                // Force OS to flush the file
+                using (var fs = File.Open(ConfigFile, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    fs.Flush();
+                }
+                
+                var tempPath = Path.Combine(ConfigDir, $"config_temp_{Guid.NewGuid()}.json");
+                File.Copy(ConfigFile, tempPath, true);
                 ConfigDoc?.Dispose();
-                ConfigDoc = JsonDocument.Parse(File.ReadAllText(ConfigFile)); 
+                ConfigDoc = JsonDocument.Parse(File.ReadAllText(tempPath));
+                try { File.Delete(tempPath); } catch { }
             }
             catch { }
         }
@@ -69,8 +131,17 @@ class RetroNFCConfigurator
         {
             try 
             { 
+                // Force OS to flush the file
+                using (var fs = File.Open(CatalogFile, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    fs.Flush();
+                }
+                
+                var tempPath = Path.Combine(ConfigDir, $"catalog_temp_{Guid.NewGuid()}.json");
+                File.Copy(CatalogFile, tempPath, true);
                 CatalogDoc?.Dispose();
-                CatalogDoc = JsonDocument.Parse(File.ReadAllText(CatalogFile)); 
+                CatalogDoc = JsonDocument.Parse(File.ReadAllText(tempPath));
+                try { File.Delete(tempPath); } catch { }
             }
             catch { }
         }
@@ -79,8 +150,17 @@ class RetroNFCConfigurator
         {
             try 
             { 
+                // Force OS to flush the file
+                using (var fs = File.Open(EmulatorsFile, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    fs.Flush();
+                }
+                
+                var tempPath = Path.Combine(ConfigDir, $"emulators_temp_{Guid.NewGuid()}.json");
+                File.Copy(EmulatorsFile, tempPath, true);
                 EmulatorsDoc?.Dispose();
-                EmulatorsDoc = JsonDocument.Parse(File.ReadAllText(EmulatorsFile)); 
+                EmulatorsDoc = JsonDocument.Parse(File.ReadAllText(tempPath));
+                try { File.Delete(tempPath); } catch { }
             }
             catch { }
         }
@@ -92,7 +172,7 @@ class RetroNFCConfigurator
         {
             Console.Clear();
             Console.WriteLine("═══════════════════════════════════════════════════════");
-            Console.WriteLine("  RetroNFC Configuration Tool");
+            Console.WriteLine("  RF Media Link Configuration Tool");
             Console.WriteLine("═══════════════════════════════════════════════════════");
             Console.WriteLine($"Config Location: {ConfigDir}");
             Console.WriteLine();
@@ -238,17 +318,41 @@ class RetroNFCConfigurator
             {
                 SaveTag(uid, name, actionType, target);
                 Console.WriteLine("Tag saved!");
-                LoadAllData();  // Reload after save
+                System.Threading.Thread.Sleep(1000);
             }
-
-            Console.WriteLine("Press any key...");
-            Console.ReadKey();
         }
+    }
+
+    private static string BrowseForFile()
+    {
+        try
+        {
+            // Use Windows.Storage.Pickers if available, otherwise fallback
+            var openFileDialog = new System.Windows.Forms.OpenFileDialog
+            {
+                Title = "Select File",
+                Filter = "All files (*.*)|*.*|Executables (*.exe)|*.exe|ROM files (*.rom;*.bin;*.cue;*.iso)|*.rom;*.bin;*.cue;*.iso",
+                CheckFileExists = true
+            };
+
+            if (openFileDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                return openFileDialog.FileName;
+            }
+        }
+        catch
+        {
+            // If dialog fails, just return empty and user can type manually
+        }
+        return "";
     }
 
     private static string WaitForScan()
     {
         string scanFile = Path.Combine(ConfigDir, "last_scan.txt");
+        
+        // Delete any existing scan file FIRST
+        try { File.Delete(scanFile); } catch { }
         
         Console.WriteLine();
         Console.WriteLine(">>> Press Enter to enter UID manually, or place tag on reader <<<");
@@ -285,11 +389,8 @@ class RetroNFCConfigurator
                     string uid = content.Split('\n')[0].Trim();
                     if (!string.IsNullOrEmpty(uid))
                     {
-                        // Cancel the manual entry task if it's still waiting
-                        if (!manualTask.IsCompleted)
-                        {
-                            // Will be canceled naturally
-                        }
+                        // Delete the file immediately after reading
+                        try { File.Delete(scanFile); } catch { }
                         return uid;
                     }
                 }
@@ -389,47 +490,75 @@ class RetroNFCConfigurator
                 Console.WriteLine("  Options:");
                 for (int j = 0; j < choices.Count; j++)
                 {
-                    Console.WriteLine($"    {j + 1}. {choices[j]}");
+                    string marker = (!string.IsNullOrEmpty(defaultVal) && choices[j] == defaultVal) ? " (default)" : "";
+                    Console.WriteLine($"    {j + 1}. {choices[j]}{marker}");
                 }
-                Console.Write("  Select (number): ");
-                string choice_input = Console.ReadLine() ?? "1";
-                if (int.TryParse(choice_input, out int choiceIdx) && choiceIdx > 0 && choiceIdx <= choices.Count)
+                Console.Write("  Select (number or Enter for default): ");
+                string choice_input = Console.ReadLine() ?? "";
+                if (string.IsNullOrWhiteSpace(choice_input))
+                {
+                    value = defaultVal;
+                }
+                else if (int.TryParse(choice_input, out int choiceIdx) && choiceIdx > 0 && choiceIdx <= choices.Count)
                 {
                     value = choices[choiceIdx - 1];
                 }
-                else if (!string.IsNullOrEmpty(defaultVal))
+                else
                 {
                     value = defaultVal;
                 }
             }
             else
             {
-                Console.Write("  Value (or press Enter for default): ");
-                value = Console.ReadLine() ?? defaultVal;
+                // For file types, offer file browser or manual entry
+                if (type == "file")
+                {
+                    Console.Write("  [B] Browse, or Enter path (or S to skip): ");
+                    string input = Console.ReadLine() ?? "";
+                    
+                    if (input.Trim().ToUpper() == "B")
+                    {
+                        value = BrowseForFile();
+                    }
+                    else if (input.Trim().ToUpper() == "S" && i < argsList.Count - 1)
+                    {
+                        // Fill remaining with defaults
+                        for (int j = i; j < argsList.Count; j++)
+                        {
+                            var (nextName, nextDef) = argsList[j];
+                            string nextDefault = nextDef.TryGetProperty("default", out var nd) ? nd.ToString() : "";
+                            argValues[nextName] = nextDefault;
+                        }
+                        break;
+                    }
+                    else
+                    {
+                        value = string.IsNullOrWhiteSpace(input) ? defaultVal : input;
+                    }
+                }
+                else
+                {
+                    Console.Write("  Value (or Enter for default, or S to skip rest): ");
+                    string input = Console.ReadLine() ?? "";
+                    
+                    if (input.Trim().ToUpper() == "S" && i < argsList.Count - 1)
+                    {
+                        // Fill remaining with defaults
+                        for (int j = i; j < argsList.Count; j++)
+                        {
+                            var (nextName, nextDef) = argsList[j];
+                            string nextDefault = nextDef.TryGetProperty("default", out var nd) ? nd.ToString() : "";
+                            argValues[nextName] = nextDefault;
+                        }
+                        break;
+                    }
+                    
+                    value = string.IsNullOrWhiteSpace(input) ? defaultVal : input;
+                }
             }
 
             argValues[argName] = value;
-
-            // Quick exit option
-            if (i < argsList.Count - 1)
-            {
-                Console.WriteLine();
-                Console.Write("  [Enter] continue, [S] skip rest with defaults, [D] default rest: ");
-                string quick = Console.ReadLine()?.ToUpper() ?? "";
-
-                if (quick == "S" || quick == "D")
-                {
-                    // Fill remaining with defaults
-                    for (int j = i + 1; j < argsList.Count; j++)
-                    {
-                        var (nextName, nextDef) = argsList[j];
-                        string nextDefault = nextDef.TryGetProperty("default", out var nd) ? nd.ToString() : "";
-                        argValues[nextName] = nextDefault;
-                    }
-                    break;
-                }
-                Console.WriteLine();
-            }
+            Console.WriteLine();
         }
 
         // Review and save
@@ -452,11 +581,8 @@ class RetroNFCConfigurator
         {
             SaveTag(uid, tagName, "emulator", selectedEmuId, argValues);
             Console.WriteLine("Tag saved!");
-            LoadAllData();  // Reload after save
+            System.Threading.Thread.Sleep(1000);
         }
-
-        Console.WriteLine("Press any key...");
-        Console.ReadKey();
     }
 
     private static void SaveTag(string uid, string name, string actionType, string target, Dictionary<string, string> emuArgs = null)
@@ -500,18 +626,54 @@ class RetroNFCConfigurator
 
         catalog[uid] = newTag;
 
-        // Save
+        // Serialize to JSON string
         var options = new JsonSerializerOptions { WriteIndented = true };
-        File.WriteAllText(CatalogFile, JsonSerializer.Serialize(catalog, options));
+        string jsonString = JsonSerializer.Serialize(catalog, options);
+        
+        // Write to file
+        File.WriteAllText(CatalogFile, jsonString);
+        
+        // Update in-memory catalog from the same JSON we just wrote
+        CatalogDoc?.Dispose();
+        CatalogDoc = JsonDocument.Parse(jsonString);
     }
 
     private static void DeleteTag()
     {
+        // Reload to get latest tags
+        LoadAllData();
+        
         Console.Clear();
         Console.WriteLine("═══════════════════════════════════════════════════════");
         Console.WriteLine("  Delete RFID Tag");
         Console.WriteLine("═══════════════════════════════════════════════════════");
         Console.WriteLine();
+
+        // Show current tags
+        if (Catalog.ValueKind == JsonValueKind.Object)
+        {
+            var tagList = new List<(string id, string name)>();
+            foreach (var tag in Catalog.EnumerateObject())
+            {
+                var name = tag.Value.TryGetProperty("name", out var n) ? n.GetString() : "Unknown";
+                tagList.Add((tag.Name, name));
+            }
+
+            if (tagList.Count > 0)
+            {
+                Console.WriteLine("Current tags:");
+                foreach (var (id, name) in tagList)
+                {
+                    Console.WriteLine($"  {id} - {name}");
+                }
+                Console.WriteLine();
+            }
+            else
+            {
+                Console.WriteLine("(No tags configured)");
+                Console.WriteLine();
+            }
+        }
 
         Console.Write("Enter Tag UID to delete: ");
         string uid = Console.ReadLine() ?? "";
@@ -553,7 +715,13 @@ class RetroNFCConfigurator
                 }
 
                 var options = new JsonSerializerOptions { WriteIndented = true };
-                File.WriteAllText(CatalogFile, JsonSerializer.Serialize(catalog, options));
+                string jsonString = JsonSerializer.Serialize(catalog, options);
+                File.WriteAllText(CatalogFile, jsonString);
+                
+                // Update in-memory catalog
+                CatalogDoc?.Dispose();
+                CatalogDoc = JsonDocument.Parse(jsonString);
+                
                 Console.WriteLine("Tag deleted!");
             }
         }
