@@ -1,39 +1,44 @@
 # Start RF Media Link Service
-# Requires Administrator privileges
+# Runs the scheduled task with elevated privileges
 
-$ServiceName = "RF Media Link"
-
-# Check if running as admin
-$currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
-$principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
-$isAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-
-if (-not $isAdmin) {
-    # Relaunch as administrator
-    Start-Process powershell.exe -Verb RunAs -ArgumentList "-ExecutionPolicy Bypass -File `"$PSCommandPath`""
-    exit
-}
+$TaskName = "RF Media Link Service"
+$InstallDir = "$env:ProgramData\RFMediaLink"
+$ExePath = "$InstallDir\RFMediaLinkService.exe"
 
 Write-Host "Starting RF Media Link Service..."
-$service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 
-if (-not $service) {
-    Write-Host "Error: Service not found!" -ForegroundColor Red
+# Check if already running
+$running = Get-Process -Name "RFMediaLinkService" -ErrorAction SilentlyContinue
+if ($running) {
+    Write-Host "Service is already running (PID: $($running.Id))" -ForegroundColor Green
     pause
-    exit 1
+    exit 0
 }
 
-if ($service.Status -eq "Running") {
-    Write-Host "Service is already running." -ForegroundColor Green
-} else {
-    Start-Service -Name $ServiceName -ErrorAction SilentlyContinue
+# Try to start via scheduled task first
+$task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+if ($task) {
+    Start-ScheduledTask -TaskName $TaskName
     Start-Sleep -Seconds 2
-    $service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
     
-    if ($service.Status -eq "Running") {
-        Write-Host "Service started successfully!" -ForegroundColor Green
+    $running = Get-Process -Name "RFMediaLinkService" -ErrorAction SilentlyContinue
+    if ($running) {
+        Write-Host "Service started successfully (PID: $($running.Id))" -ForegroundColor Green
     } else {
-        Write-Host "Failed to start service. Status: $($service.Status)" -ForegroundColor Red
+        Write-Host "Failed to start service via scheduled task" -ForegroundColor Red
+    }
+} else {
+    # Fallback: start directly (won't have elevated privileges)
+    Write-Host "Scheduled task not found, starting directly..." -ForegroundColor Yellow
+    Start-Process -FilePath $ExePath -WorkingDirectory $InstallDir -WindowStyle Minimized
+    Start-Sleep -Seconds 2
+    
+    $running = Get-Process -Name "RFMediaLinkService" -ErrorAction SilentlyContinue
+    if ($running) {
+        Write-Host "Service started (PID: $($running.Id))" -ForegroundColor Green
+        Write-Host "WARNING: Running without elevated privileges - window focus may not work" -ForegroundColor Yellow
+    } else {
+        Write-Host "Failed to start service" -ForegroundColor Red
     }
 }
 

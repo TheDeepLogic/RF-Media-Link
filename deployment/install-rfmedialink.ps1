@@ -112,6 +112,43 @@ if ($Uninstall) {
 # Install
 Write-Host "Installing RF Media Link to $InstallDir..."
 
+# CRITICAL: Stop all running processes BEFORE copying files
+Write-Host "Stopping any running instances..."
+for ($i = 0; $i -lt 3; $i++) {
+    $serviceProcs = Get-Process -Name "RFMediaLinkService" -ErrorAction SilentlyContinue
+    $configProcs = Get-Process -Name "RFMediaLink" -ErrorAction SilentlyContinue
+    
+    if ($serviceProcs) {
+        Write-Host "  Stopping RFMediaLinkService processes..."
+        $serviceProcs | Stop-Process -Force -ErrorAction SilentlyContinue
+    }
+    if ($configProcs) {
+        Write-Host "  Stopping RFMediaLink configurator processes..."
+        $configProcs | Stop-Process -Force -ErrorAction SilentlyContinue
+    }
+    
+    Start-Sleep -Seconds 2
+    
+    # Verify they're really gone
+    $stillRunning = @()
+    $stillRunning += Get-Process -Name "RFMediaLinkService" -ErrorAction SilentlyContinue
+    $stillRunning += Get-Process -Name "RFMediaLink" -ErrorAction SilentlyContinue
+    
+    if ($stillRunning.Count -eq 0) {
+        Write-Host "  All processes stopped" -ForegroundColor Green
+        break
+    }
+    
+    if ($i -eq 2) {
+        Write-Host "  WARNING: Some processes are still running!" -ForegroundColor Red
+        Write-Host "  Installation may fail due to file locks." -ForegroundColor Red
+        $continue = Read-Host "Continue anyway? (y/n)"
+        if ($continue.ToLower() -ne 'y') {
+            exit 1
+        }
+    }
+}
+
 # Create installation directory
 if (-not (Test-Path $InstallDir)) {
     New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
@@ -217,26 +254,42 @@ if ($existingService) {
     Write-Host "Old service removed"
 }
 
-# Kill any running instances
-Write-Host "Stopping any running instances..."
-Get-Process -Name "RFMediaLinkService" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 1
-
-# Add to startup folder instead of Windows Service
-Write-Host "Adding to Windows Startup..."
-$exePath = "$InstallDir\RFMediaLinkService.exe"
+# Remove old startup shortcut if it exists
 $StartupFolder = [Environment]::GetFolderPath("Startup")
 $startupShortcutPath = Join-Path $StartupFolder "RF Media Link.lnk"
+if (Test-Path $startupShortcutPath) {
+    Remove-Item -Path $startupShortcutPath -Force -ErrorAction SilentlyContinue
+    Write-Host "Removed old startup shortcut"
+}
 
-$shell = New-Object -ComObject WScript.Shell
-$shortcut = $shell.CreateShortcut($startupShortcutPath)
-$shortcut.TargetPath = $exePath
-$shortcut.WorkingDirectory = $InstallDir
-$shortcut.Description = "RF Media Link RFID Service"
-$shortcut.WindowStyle = 7  # Minimized
-$shortcut.Save()
+# Create a Scheduled Task instead of startup shortcut
+# This allows running with elevated privileges without UAC prompts
+Write-Host "Creating scheduled task for startup..."
+$exePath = "$InstallDir\RFMediaLinkService.exe"
+$taskName = "RF Media Link Service"
 
-Write-Host "Added to Startup folder (will run at login)"
+# Remove existing task if present
+$existingTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+if ($existingTask) {
+    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+}
+
+# Create the scheduled task action
+$action = New-ScheduledTaskAction -Execute $exePath -WorkingDirectory $InstallDir
+
+# Trigger at logon of current user
+$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+
+# Settings for the task
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -DontStopOnIdleEnd -ExecutionTimeLimit (New-TimeSpan -Days 0)
+
+# Principal with highest privileges (no UAC prompt)
+$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
+
+# Register the task
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Description "RF Media Link RFID Reader Service" | Out-Null
+
+Write-Host "Scheduled task created (runs at login with elevated privileges)"
 
 # Create shortcuts BEFORE starting service
 Write-Host "Creating shortcuts..."
@@ -312,7 +365,7 @@ Write-Host "  - $InstallDir\config.json"
 Write-Host "  - $InstallDir\catalog.json"
 Write-Host "  - $InstallDir\emulators.json"
 Write-Host ""
-Write-Host "Service runs at login from: $StartupFolder\RF Media Link.lnk"
+Write-Host "Service runs at login via Scheduled Task (with elevated privileges)"
 Write-Host ""
 Write-Host "Shortcuts created:"
 Write-Host "  - Desktop: RF Media Link Configure.lnk"

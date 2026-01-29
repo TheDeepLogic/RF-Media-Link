@@ -17,7 +17,7 @@ REM Get the directory where this script is located
 set SCRIPT_DIR=%~dp0
 
 REM Run PowerShell uninstaller
-powershell -ExecutionPolicy Bypass -File "%SCRIPT_DIR%install-rfmedialink.ps1" -Uninstall
+powershell -ExecutionPolicy Bypass -File "%SCRIPT_DIR%uninstall.ps1"
 
 if %errorLevel% equ 0 (
     echo.

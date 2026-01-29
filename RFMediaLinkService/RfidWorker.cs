@@ -100,14 +100,23 @@ public class CloseOnLaunchSettings
 
 public class RfidWorker : BackgroundService
 {
-    // Windows API for bringing window to foreground
+    // Windows API declarations for window activation
     [DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
     
     [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     
+    [DllImport("user32.dll")]
+    private static extern bool BringWindowToTop(IntPtr hWnd);
+    
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, IntPtr dwExtraInfo);
+    
     private const int SW_RESTORE = 9;
+    private const int SW_SHOW = 5;
+    private const byte VK_MENU = 0x12; // ALT key
+    private const uint KEYEVENTF_KEYUP = 0x0002;
     
     private readonly ILogger<RfidWorker> _logger;
     private SerialPort? _serialPort;
@@ -676,39 +685,46 @@ public class RfidWorker : BackgroundService
             var process = Process.Start(psi);
             _logger.LogWarning($"Process.Start() called successfully!");
             
-            // Aggressively bring window to foreground (retry multiple times)
-            if (process != null)
+            // Use ALT+TAB simulation to bring window to foreground
+            // This is more reliable than SetForegroundWindow and works without admin rights
+            if (process != null && !process.HasExited)
             {
                 Task.Run(async () =>
                 {
-                    // Try multiple times with increasing delays to combat focus stealing
-                    var delays = new[] { 100, 300, 500, 800, 1200 };
-                    foreach (var delay in delays)
+                    try
                     {
-                        await Task.Delay(delay);
-                        try
+                        // Wait for window to be created
+                        for (int attempt = 0; attempt < 10; attempt++)
                         {
+                            await Task.Delay(300);
                             process.Refresh();
-                            if (!process.HasExited)
-                            {
-                                // Get main window handle
-                                var handle = process.MainWindowHandle;
-                                if (handle == IntPtr.Zero)
-                                {
-                                    // Window might not be ready, wait for next retry
-                                    continue;
-                                }
+                            
+                            if (process.HasExited)
+                                break;
                                 
-                                // Force window to foreground
-                                ShowWindow(handle, SW_RESTORE);
+                            var handle = process.MainWindowHandle;
+                            if (handle != IntPtr.Zero)
+                            {
+                                // Simulate ALT key press and release to allow SetForegroundWindow
+                                keybd_event(VK_MENU, 0, 0, IntPtr.Zero);
                                 SetForegroundWindow(handle);
-                                _logger.LogInformation($"Activated {emulatorName} window (attempt at {delay}ms)");
+                                ShowWindow(handle, SW_RESTORE);
+                                ShowWindow(handle, SW_SHOW);
+                                BringWindowToTop(handle);
+                                SetForegroundWindow(handle);
+                                keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, IntPtr.Zero);
+                                
+                                _logger.LogInformation($"Activated {emulatorName} window (attempt {attempt + 1})");
+                                
+                                // Try a few more times to be sure
+                                if (attempt >= 2)
+                                    break;
                             }
                         }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, $"Could not activate window at {delay}ms delay");
-                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Could not activate window");
                     }
                 });
             }
