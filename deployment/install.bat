@@ -1,5 +1,5 @@
 @echo off
-REM RF Media Link Service Installer Batch Wrapper
+REM RF Media Link Installer
 REM Right-click and select "Run as administrator"
 
 setlocal enabledelayedexpansion

@@ -1,5 +1,5 @@
 @echo off
-REM RF Media Link Service Uninstaller
+REM RF Media Link Uninstaller
 REM Right-click and select "Run as administrator"
 
 setlocal enabledelayedexpansion

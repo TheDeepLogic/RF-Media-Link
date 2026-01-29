@@ -8,6 +8,14 @@ launch-wt.ps1
 # Windows shortcuts
 *.lnk
 
+# Build outputs
+bin/
+obj/
+publish/
+
+# Release packages
+release/
+
 # Python
 __pycache__/
 *.py[cod]

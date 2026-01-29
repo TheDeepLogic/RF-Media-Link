@@ -166,49 +166,70 @@ catch {
     Write-Warning "Failed to set permissions on $InstallDir : $_"
 }
 
-# Copy from actual build folders - no guessing
-$parentDir = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+# Determine if running from release package or development environment
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$parentDir = Split-Path -Parent $scriptDir
 
-# Copy Service files from service publish folder
-$servicePublishDir = Join-Path $parentDir "RFMediaLinkService\bin\Release\net8.0-windows\publish"
-if (Test-Path $servicePublishDir) {
-    Write-Host "Copying service files from $servicePublishDir..."
-    $filesCopied = 0
-    Get-ChildItem -Path $servicePublishDir -Recurse | ForEach-Object {
-        $targetPath = $_.FullName.Replace($servicePublishDir, $InstallDir)
-        if ($_.PSIsContainer) {
-            if (-not (Test-Path $targetPath)) {
-                New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
-            }
-        } else {
-            Copy-Item -Path $_.FullName -Destination $targetPath -Force
-            $filesCopied++
-        }
-    }
-    Write-Host "Service files copied: $filesCopied files"
-} else {
-    Write-Error "Service build folder not found: $servicePublishDir"
+# Check if this is a release package (service/ and configurator/ folders in same directory as script)
+$serviceReleaseDir = Join-Path $scriptDir "service"
+$configuratorReleaseDir = Join-Path $scriptDir "configurator"
+
+# Check if this is development environment (build folders in parent directory structure)
+$serviceBuildDir = Join-Path $parentDir "RFMediaLinkService\bin\Release\net8.0-windows\publish"
+$configuratorBuildDir = Join-Path $parentDir "RFMediaLink\bin\Release\net8.0-windows\publish"
+
+# Determine source directories
+if ((Test-Path $serviceReleaseDir) -and (Test-Path $configuratorReleaseDir)) {
+    # Release package mode
+    Write-Host "Detected release package mode"
+    $servicePublishDir = $serviceReleaseDir
+    $configurePublishDir = $configuratorReleaseDir
+}
+elseif ((Test-Path $serviceBuildDir) -and (Test-Path $configuratorBuildDir)) {
+    # Development mode
+    Write-Host "Detected development mode"
+    $servicePublishDir = $serviceBuildDir
+    $configurePublishDir = $configuratorBuildDir
+}
+else {
+    Write-Error "Could not find service or configurator binaries. Checked:`n  - $serviceReleaseDir`n  - $configuratorReleaseDir`n  - $serviceBuildDir`n  - $configuratorBuildDir"
     pause
     exit 1
 }
 
-# Copy Configurator files from configurator publish folder  
-$configurePublishDir = Join-Path $parentDir "RFMediaLink\bin\Release\net8.0-windows\publish"
-if (Test-Path $configurePublishDir) {
-    Write-Host "Copying configurator files from $configurePublishDir..."
-    Get-ChildItem -Path $configurePublishDir -Filter "RFMediaLink.*" | Copy-Item -Destination $InstallDir -Force
-    Write-Host "Configurator files copied"
+# Copy Service files
+Write-Host "Copying service files from $servicePublishDir..."
+$filesCopied = 0
+Get-ChildItem -Path $servicePublishDir -Recurse | ForEach-Object {
+    $targetPath = $_.FullName.Replace($servicePublishDir, $InstallDir)
+    if ($_.PSIsContainer) {
+        if (-not (Test-Path $targetPath)) {
+            New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
+        }
+    } else {
+        Copy-Item -Path $_.FullName -Destination $targetPath -Force
+        $filesCopied++
+    }
+}
+Write-Host "Service files copied: $filesCopied files"
+
+# Copy Configurator files
+Write-Host "Copying configurator files from $configurePublishDir..."
+Get-ChildItem -Path $configurePublishDir -Filter "RFMediaLink.*" | Copy-Item -Destination $InstallDir -Force
+Write-Host "Configurator files copied"
+
+# Copy JSON config files and other resources
+# Determine source locations based on release vs dev mode
+if (Test-Path (Join-Path $scriptDir "inc")) {
+    # Release package - inc folder is in same directory as script
+    $incDir = Join-Path $scriptDir "inc"
 } else {
-    Write-Error "Configurator build folder not found: $configurePublishDir"
-    exit 1
+    # Development - inc folder is in parent directory
+    $incDir = Join-Path $parentDir "inc"
 }
 
-# Copy JSON config files (only if they don't exist)
-$sourceDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $configFiles = @(
-    @{ Name = "config.json"; Source = Join-Path $parentDir "config.json" }
-    @{ Name = "catalog.json"; Source = Join-Path $parentDir "catalog.json" }
-    @{ Name = "emulators.json"; Source = Join-Path $parentDir "inc\emulators.json" }
+    @{ Name = "emulators.json"; Source = Join-Path $incDir "emulators.json" }
 )
 
 foreach ($file in $configFiles) {
@@ -224,13 +245,23 @@ foreach ($file in $configFiles) {
 }
 
 # Copy service management scripts
-$deploymentDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+# Determine source based on release vs dev mode
+if (Test-Path (Join-Path $scriptDir "scripts")) {
+    # Release package - scripts are in scripts/ folder
+    $scriptsSourceDir = Join-Path $scriptDir "scripts"
+} else {
+    # Development - scripts are in same directory as this script
+    $scriptsSourceDir = $scriptDir
+}
+
 foreach ($file in @("start-service.ps1", "stop-service.ps1", "restart-service.ps1", "update-service.ps1", "uninstall.ps1", "open-catalog.bat", "open-emulators.bat")) {
-    $sourcePath = Join-Path $deploymentDir $file
+    $sourcePath = Join-Path $scriptsSourceDir $file
     $destPath = "$InstallDir\$file"
     if (Test-Path $sourcePath) {
         Copy-Item -Path $sourcePath -Destination $destPath -Force
         Write-Host "Copied $file"
+    } else {
+        Write-Warning "Script not found: $sourcePath"
     }
 }
 
@@ -317,10 +348,10 @@ Create-Shortcut -TargetPath $configuratorPath -ShortcutPath $startMenuShortcut -
 
 # Start Menu - Service Management shortcuts
 $startServiceShortcut = Join-Path $StartMenuFolder "Start Service.lnk"
-Create-Shortcut -TargetPath $exePath -ShortcutPath $startServiceShortcut -Description "Start RF Media Link Service" -IconLocation $iconPath -WorkingDirectory $InstallDir
+Create-Shortcut -TargetPath "powershell.exe" -ShortcutPath $startServiceShortcut -Description "Start RF Media Link Service" -IconLocation $iconPath -Arguments "-ExecutionPolicy Bypass -File `"$InstallDir\start-service.ps1`""
 
 $stopServiceShortcut = Join-Path $StartMenuFolder "Stop Service.lnk"
-Create-Shortcut -TargetPath "taskkill.exe" -ShortcutPath $stopServiceShortcut -Description "Stop RF Media Link Service" -IconLocation $iconPath -Arguments "/IM RFMediaLinkService.exe /F"
+Create-Shortcut -TargetPath "powershell.exe" -ShortcutPath $stopServiceShortcut -Description "Stop RF Media Link Service" -IconLocation $iconPath -Arguments "-ExecutionPolicy Bypass -File `"$InstallDir\stop-service.ps1`""
 
 $restartServiceShortcut = Join-Path $StartMenuFolder "Restart Service.lnk"
 Create-Shortcut -TargetPath "powershell.exe" -ShortcutPath $restartServiceShortcut -Description "Restart RF Media Link Service" -IconLocation $iconPath -Arguments "-ExecutionPolicy Bypass -File `"$InstallDir\restart-service.ps1`""

@@ -9,14 +9,14 @@
 
 ## Features
 
-- **Startup Application**: Runs in background monitoring RFID reader (launches at login)
-- **Console Configuration Tool**: Easy tag and application management
+- **Background Service via Scheduled Task**: Runs at login with elevated privileges for proper window focus
+- **Console Configuration Tool**: Easy tag and application management with browse dialogs
 - **Multiple Application Support**: Media players, emulators, file explorers, browsers, custom apps
 - **Flexible Actions**: Launch applications, open files, navigate URLs, run commands
 - **Customizable Arguments**: File paths, choices, toggles, and flags per application
-- **Hot Reload**: Add tags via configurator while service runs
+- **Hot Reload**: Configuration changes detected automatically (no service restart needed)
 - **JSON Configuration**: Easy backup, version control, and manual editing
-- **Foreground Activation**: Launched applications automatically receive focus
+- **Foreground Activation**: Launched applications automatically receive focus using ALT key simulation
 
 > **Reader Compatibility Note**
 > RF Media Link is built around a **custom serial RFID reader** for this project. See the parts list in [BOM.md](BOM.md) and the ESP32 serial firmware in [host_examples/esp32c3_rfid_reader_with_display.ino](host_examples/esp32c3_rfid_reader_with_display.ino). Most off‑the‑shelf HID/keyboard‑wedge readers will **not** work with the service.
@@ -39,26 +39,22 @@
 
 1. **Clone or download** this repository
 2. **Build the projects** (or use pre-built binaries from releases):
-   ```powershell
-   cd RFMediaLinkService
-   dotnet publish -c Release
-   
-   cd ..\RFMediaLink
-   dotnet publish -c Release
+   ```cmd
+   build-release.bat
    ```
 
-3. **Run the installer** (as Administrator):
-   ```powershell
+3. **Run the installer** (Right-click and "Run as administrator"):
+   ```cmd
    cd deployment
-   .\install-rfmedialink.bat
+   install.bat
    ```
    
    This will:
    - Copy binaries to `C:\ProgramData\RFMediaLink\`
-   - Add to Windows Startup (runs at login)
+   - Create a scheduled task to run at login with elevated privileges
    - Start the service immediately
    - Create desktop and Start Menu shortcuts
-   - Create default configuration files
+   - Copy default `emulators.json` configuration file
 
 4. **Configure the serial port**:
    - Run the **RF Media Link Configure** shortcut, or
@@ -80,17 +76,18 @@
 
 2. **Add a tag**:
    - Press `A` to add tag
-   - Place RFID tag on reader (it will auto-scan)
+   - Place RFID tag on reader (it will auto-scan into `scan_null.log`)
    - Or press Enter to type UID manually
    - Enter a name for the tag
-   - Select action type `1` for application
-   - Choose application from list
+   - Select action type `1` for emulator
+   - Choose emulator from list
    - Configure arguments:
      - For **choice** fields (like model), select from numbered menu
      - For **file** fields (like media files), press `[B] Browse` to open file dialog or enter path
      - For **toggle** fields, enter `true`/`false` or press Enter for default
-   - Press `S` at any prompt to skip remaining fields with defaults
    - Confirm save
+
+The catalog is saved immediately and the service will detect the change automatically (no restart needed).
 
 3. **Test the tag**:
    - Scan the RFID tag
@@ -329,35 +326,45 @@ B. Back to Menu
 
 ### Start/Stop/Restart
 
+Use the Start Menu shortcuts or PowerShell:
+
 ```powershell
-# Start service
-Start-Service "RF Media Link"
+# Start via scheduled task
+Start-ScheduledTask -TaskName "RF Media Link Service"
 
-# Stop service
-Stop-Service "RF Media Link"
+# Stop the service
+Stop-Process -Name "RFMediaLinkService" -Force
 
-# Restart service
-Restart-Service "RF Media Link"
+# Restart
+Stop-Process -Name "RFMediaLinkService" -Force; Start-Sleep -Seconds 2; Start-ScheduledTask -TaskName "RF Media Link Service"
 
-# Check status
-Get-Service "RF Media Link"
+# Check if running
+Get-Process RFMediaLinkService -ErrorAction SilentlyContinue
 ```
+
+Or use the provided scripts in `C:\ProgramData\RFMediaLink\`:
+- `start-service.ps1`
+- `stop-service.ps1`  
+- `restart-service.ps1`
 
 ### View Logs
 
-Service logs to Windows Event Log:
+Service logs to Windows Event Viewer:
+
+1. Open Event Viewer (`eventvwr.msc`)
+2. Navigate to: **Windows Logs → Application**
+3. Filter by source: **"RFMediaLinkService"**
+
+Or use PowerShell:
 
 ```powershell
 # View recent logs
-Get-EventLog -LogName Application -Source "RF Media Link" -Newest 50
-
-# Real-time monitoring
-Get-EventLog -LogName Application -Source "RF Media Link" -Newest 1 -After (Get-Date).AddMinutes(-1)
+Get-EventLog -LogName Application -Source "RFMediaLinkService" -Newest 50 | Format-Table TimeGenerated, Message -AutoSize
 ```
 
 ### Update Service
 
-After rebuilding the service DLL:
+After rebuilding:
 
 ```powershell
 cd deployment
@@ -368,9 +375,11 @@ This stops the service, copies new binaries, and restarts.
 
 ### Uninstall
 
-```powershell
+Right-click and "Run as administrator":
+
+```cmd
 cd deployment
-.\uninstall-retrof.bat
+uninstall.bat
 ```
 
 ---
@@ -380,31 +389,37 @@ cd deployment
 ### Service won't start
 
 1. Check if already running: `Get-Process -Name "RFMediaLinkService"`
-2. Check serial port in `config.json` matches your RFID reader
+2. Check serial port in `C:\ProgramData\RFMediaLink\config.json` matches your RFID reader
 3. Verify .NET 8.0 Runtime is installed
-4. Check Event Viewer for errors:
-  ```powershell
-  Get-EventLog -LogName Application -Source "RF Media Link" -Newest 10
-  ```
-5. Try running manually: `C:\ProgramData\RFMediaLink\RFMediaLinkService.exe`
+4. Check Event Viewer (Windows Logs → Application, filter by "RFMediaLinkService")
+5. Verify scheduled task exists: `Get-ScheduledTask -TaskName "RF Media Link Service"`
+6. Try running manually (requires admin): Right-click `C:\ProgramData\RFMediaLink\RFMediaLinkService.exe` → Run as administrator
 
 ### Tag not recognized
 
-1. Verify tag is in `catalog.json`
-2. Check UID format matches (spaces, uppercase: `66 DC 6E 05`)
-3. Check Event Log - service logs "DEBUG: Catalog keys:" and "DEBUG: Looking for UID:" for comparison
+1. Verify tag is in `C:\ProgramData\RFMediaLink\catalog.json`
+2. Check UID format - service logs normalize case automatically
+3. Check Event Viewer - service logs catalog loading and UID lookups
+4. Verify scan is being detected - check `C:\ProgramData\RFMediaLink\scan_null.log`
 
 ### Emulator won't launch
 
 1. Verify `executable` path in `emulators.json` is correct and points to the actual .exe file
 2. Check disk/ROM file paths in `catalog.json` - must be full paths
 3. Test emulator manually with same arguments
-4. Check Event Log for "Error launching" messages with exception details
+4. Check Event Viewer for "Error launching" messages with exception details
 
-### Configurator doesn't see scans
+### Emulator launches but doesn't get focus
 
-1. Verify service is running: `Get-Service "RF Media Link"`
-2. Check that `last_scan.txt` is being created in `%LOCALAPPDATA%\RFMediaLink\`
+1. Verify service is running with elevated privileges via the scheduled task
+2. Try manually: Right-click `RFMediaLinkService.exe` → Run as administrator
+3. Check Event Viewer for window activation messages
+4. The service uses ALT key simulation to bypass Windows focus stealing prevention
+
+### Configurator doesn't detect scans
+
+1. Verify service is running: `Get-Process RFMediaLinkService`
+2. Check that `scan_null.log` is being updated in `C:\ProgramData\RFMediaLink\`
 3. Restart service if needed
 
 ---
@@ -481,15 +496,15 @@ You can map tags to other actions by editing `catalog.json`:
 
 ### Backup and Restore
 
-All configuration is in JSON files in `%LOCALAPPDATA%\RFMediaLink\`:
+All configuration is in JSON files in `C:\ProgramData\RFMediaLink\`:
 
 ```powershell
 # Backup
-Copy-Item "$env:LOCALAPPDATA\RFMediaLink\*.json" "D:\Backup\"
+Copy-Item "$env:ProgramData\RFMediaLink\*.json" "D:\Backup\"
 
 # Restore
-Copy-Item "D:\Backup\*.json" "$env:LOCALAPPDATA\RFMediaLink\"
-Restart-Service "RF Media Link"
+Copy-Item "D:\Backup\*.json" "$env:ProgramData\RFMediaLink\"
+Restart-ScheduledTask -TaskName "RF Media Link Service"
 ```
 
 ---
