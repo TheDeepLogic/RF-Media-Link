@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Ports;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -99,6 +100,15 @@ public class CloseOnLaunchSettings
 
 public class RfidWorker : BackgroundService
 {
+    // Windows API for bringing window to foreground
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+    
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    
+    private const int SW_RESTORE = 9;
+    
     private readonly ILogger<RfidWorker> _logger;
     private SerialPort? _serialPort;
     private string? _basePath;
@@ -147,19 +157,20 @@ public class RfidWorker : BackgroundService
 
     private void FindBasePath()
     {
-        // ALWAYS use AppData for the service - that's where it's installed
-        var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RFMediaLink");
+        // Use ProgramData for service data - shared location accessible by all users
+        var programData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "RFMediaLink");
         
-        if (Directory.Exists(appData))
+        if (Directory.Exists(programData))
         {
-            _basePath = appData;
-            _logger.LogWarning($"DEBUG: Using AppData path: {_basePath}");
+            _basePath = programData;
+            _logger.LogWarning($"DEBUG: Using ProgramData path: {_basePath}");
             return;
         }
 
-        // Fallback to other locations
+        // Fallback to other locations (for backward compatibility)
         var paths = new[]
         {
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RFMediaLink"),
             @"C:\Program Files\RFMediaLink",
             AppDomain.CurrentDomain.BaseDirectory,
             Path.GetDirectoryName(AppDomain.CurrentDomain.BaseDirectory) ?? "",
@@ -176,65 +187,193 @@ public class RfidWorker : BackgroundService
             }
         }
 
-        // Last resort - use AppData even if it doesn't exist yet
-        _basePath = appData;
+        // Last resort - use ProgramData even if it doesn't exist yet
+        _basePath = programData;
         _logger.LogWarning($"Could not find config files, using default: {_basePath}");
+        
+        // Create the directory if it doesn't exist
+        try
+        {
+            if (!Directory.Exists(_basePath))
+            {
+                Directory.CreateDirectory(_basePath);
+                _logger.LogInformation($"Created directory: {_basePath}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Failed to create directory: {_basePath}");
+        }
     }
 
     private void LoadConfiguration()
     {
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
+        // Load config.json
         try
         {
             var configPath = Path.Combine(_basePath!, "config.json");
             _logger.LogInformation($"Loading config from: {configPath}");
             if (!File.Exists(configPath))
             {
-                _logger.LogWarning($"Config file not found: {configPath}");
+                _logger.LogWarning($"Config file not found: {configPath}, creating default");
                 _config = new Config { SerialPort = "COM9", BaudRate = 115200 };
-                return;
+                // Create default config.json
+                var defaultConfig = JsonSerializer.Serialize(_config, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(configPath, defaultConfig);
+                _logger.LogInformation($"Created default config.json at {configPath}");
             }
-            var configJson = File.ReadAllText(configPath);
-            _config = JsonSerializer.Deserialize<Config>(configJson, options);
-            _logger.LogInformation($"Config loaded: SerialPort={_config?.SerialPort}, BaudRate={_config?.BaudRate}");
+            else
+            {
+                var configJson = File.ReadAllText(configPath);
+                _config = JsonSerializer.Deserialize<Config>(configJson, options);
+                _logger.LogInformation($"Config loaded: SerialPort={_config?.SerialPort}, BaudRate={_config?.BaudRate}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading config.json");
+            _config = new Config { SerialPort = "COM9", BaudRate = 115200 };
+        }
 
+        // Load catalog.json
+        try
+        {
             var catalogPath = Path.Combine(_basePath!, "catalog.json");
             _logger.LogInformation($"Loading catalog from: {catalogPath}");
             if (!File.Exists(catalogPath))
             {
-                _logger.LogWarning($"Catalog file not found: {catalogPath}");
+                _logger.LogWarning($"Catalog file not found: {catalogPath}, creating empty catalog");
                 _catalog = new();
-                return;
+                // Create empty catalog.json
+                var defaultCatalog = "{}";
+                File.WriteAllText(catalogPath, defaultCatalog);
+                _logger.LogInformation($"Created empty catalog.json at {catalogPath}");
             }
-            var catalogJson = File.ReadAllText(catalogPath);
-            // Catalog is now a dict with UID as key, not an array
-            var catalogDict = JsonSerializer.Deserialize<Dictionary<string, CatalogEntry>>(catalogJson, options);
-            _catalog = catalogDict ?? new();
-            _logger.LogInformation($"Catalog loaded: {_catalog.Count} entries");
-
-            var emulatorsPath = Path.Combine(_basePath!, "emulators.json");
-            _logger.LogInformation($"Loading emulators from: {emulatorsPath}");
-            if (!File.Exists(emulatorsPath))
+            else
             {
-                _logger.LogWarning($"Emulators file not found: {emulatorsPath}");
-                _emulators = new();
-                return;
+                var catalogJson = File.ReadAllText(catalogPath);
+                // Catalog is now a dict with UID as key, not an array
+                var catalogDict = JsonSerializer.Deserialize<Dictionary<string, CatalogEntry>>(catalogJson, options);
+                _catalog = catalogDict ?? new();
+                _logger.LogInformation($"Catalog loaded: {_catalog.Count} entries");
             }
-            var emulatorsJson = File.ReadAllText(emulatorsPath);
-            _emulators = JsonSerializer.Deserialize<Dictionary<string, Emulator>>(emulatorsJson, options) ?? new();
-            _logger.LogInformation($"Emulators loaded: {_emulators.Count} emulators");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error loading configuration, using defaults");
-            _config = new Config { SerialPort = "COM9", BaudRate = 115200 };
+            _logger.LogError(ex, "Error loading catalog.json");
             _catalog = new();
+        }
+
+        // Load emulators.json
+        try
+        {
+            var emulatorsPath = Path.Combine(_basePath!, "emulators.json");
+            _logger.LogWarning($"Loading emulators from: {emulatorsPath}");
+            if (!File.Exists(emulatorsPath))
+            {
+                _logger.LogWarning($"Emulators file not found: {emulatorsPath}, creating empty emulators");
+                _emulators = new();
+                // Create empty emulators.json
+                var defaultEmulators = "{}";
+                File.WriteAllText(emulatorsPath, defaultEmulators);
+                _logger.LogWarning($"Created empty emulators.json at {emulatorsPath}");
+            }
+            else
+            {
+                _logger.LogWarning($"emulators.json exists, reading file...");
+                var emulatorsJson = File.ReadAllText(emulatorsPath);
+                _logger.LogWarning($"File content length: {emulatorsJson.Length} characters");
+                _emulators = JsonSerializer.Deserialize<Dictionary<string, Emulator>>(emulatorsJson, options) ?? new();
+                _logger.LogWarning($"Emulators loaded: {_emulators.Count} emulators");
+                if (_emulators.Count > 0)
+                {
+                    _logger.LogWarning($"Emulator names: {string.Join(", ", _emulators.Keys)}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading emulators.json");
             _emulators = new();
         }
 
-        // Start watching catalog.json for changes
+        // Start watching config files for changes
+        SetupFileWatchers();
+    }
+
+    private void SetupFileWatchers()
+    {
         SetupCatalogWatcher();
+        SetupEmulatorsWatcher();
+    }
+
+    private void SetupEmulatorsWatcher()
+    {
+        if (string.IsNullOrEmpty(_basePath))
+            return;
+
+        try
+        {
+            var emulatorsWatcher = new FileSystemWatcher(_basePath, "emulators.json")
+            {
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.CreationTime,
+                EnableRaisingEvents = false
+            };
+
+            emulatorsWatcher.Changed += (sender, e) =>
+            {
+                _logger.LogInformation("Emulators file change detected, reloading...");
+                System.Threading.Thread.Sleep(100); // Brief delay to ensure file is written
+                LoadEmulatorsFromDisk();
+            };
+
+            emulatorsWatcher.Created += (sender, e) =>
+            {
+                _logger.LogInformation("Emulators file created, loading...");
+                System.Threading.Thread.Sleep(100);
+                LoadEmulatorsFromDisk();
+            };
+
+            emulatorsWatcher.EnableRaisingEvents = true;
+            _logger.LogInformation("Emulators file watcher started");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to setup emulators watcher");
+        }
+    }
+
+    private void LoadEmulatorsFromDisk()
+    {
+        try
+        {
+            var emulatorsPath = Path.Combine(_basePath!, "emulators.json");
+            _logger.LogInformation($"LoadEmulatorsFromDisk: Loading from {emulatorsPath}");
+            
+            if (!File.Exists(emulatorsPath))
+            {
+                _logger.LogError($"Emulators file not found at: {emulatorsPath}");
+                _emulators = new();
+                return;
+            }
+            
+            var emulatorsJson = File.ReadAllText(emulatorsPath);
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _emulators = JsonSerializer.Deserialize<Dictionary<string, Emulator>>(emulatorsJson, options) ?? new();
+            _logger.LogInformation($"LoadEmulatorsFromDisk: Loaded {_emulators.Count} emulators");
+            
+            if (_emulators.Count > 0)
+            {
+                _logger.LogInformation($"Available emulators: {string.Join(", ", _emulators.Keys)}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading emulators from disk");
+            _emulators = new();
+        }
     }
 
     private void SetupCatalogWatcher()
@@ -407,27 +546,6 @@ public class RfidWorker : BackgroundService
     {
         _logger.LogWarning($"DEBUG: ProcessRfidTag called with UID: {uid}");
 
-        // Write to last_scan.txt for configure.py to pick up
-        try
-        {
-            if (_basePath == null)
-            {
-                _logger.LogError("_basePath is null - cannot write scan file");
-                return;
-            }
-            
-            var scanFile = Path.Combine(_basePath, "last_scan.txt");
-            _logger.LogWarning($"DEBUG: Writing to {scanFile}");
-            
-            var content = $"{uid}\n{DateTime.Now:yyyy-MM-dd HH:mm:ss}";
-            File.WriteAllText(scanFile, content);
-            _logger.LogWarning($"DEBUG: Successfully wrote scan to {scanFile}");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, $"Failed to write scan file for {uid}");
-        }
-
         // Catalog is now auto-reloaded by FileSystemWatcher when file changes
         // Just look up the UID in current _catalog
         if (_logger.IsEnabled(LogLevel.Warning))
@@ -436,22 +554,61 @@ public class RfidWorker : BackgroundService
             _logger.LogWarning($"DEBUG: Looking for UID: '{uid}'");
         }
 
-        if (_catalog == null || !_catalog.TryGetValue(uid, out var entry))
+        CatalogEntry? entry = null;
+        bool foundInCatalog = _catalog != null && _catalog.TryGetValue(uid, out entry);
+
+        // Write scan files
+        try
+        {
+            if (_basePath == null)
+            {
+                _logger.LogError("_basePath is null - cannot write scan file");
+                return;
+            }
+            
+            // Always write scan_last.log
+            var scanLastFile = Path.Combine(_basePath, "scan_last.log");
+            var content = $"{uid}\n{DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+            File.WriteAllText(scanLastFile, content);
+            _logger.LogWarning($"DEBUG: Successfully wrote scan to {scanLastFile}");
+            
+            // Only write scan_null.log if not found in catalog
+            if (!foundInCatalog)
+            {
+                var scanNullFile = Path.Combine(_basePath, "scan_null.log");
+                File.WriteAllText(scanNullFile, content);
+                _logger.LogWarning($"DEBUG: Tag not in catalog, wrote to {scanNullFile}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Failed to write scan file for {uid}");
+        }
+
+        _logger.LogWarning($"DEBUG: foundInCatalog={foundInCatalog}, entry is null={entry == null}");
+        
+        if (!foundInCatalog || entry == null)
         {
             _logger.LogWarning($"Tag not found in catalog: {uid}");
             return;
         }
 
-        _logger.LogInformation($"Tag matched: {entry.Name} (Action: {entry.ActionType})");
+        _logger.LogWarning($"Tag matched: {entry.Name} (Action: {entry.ActionType})");
+        _logger.LogWarning($"Action type: '{entry.ActionType}', Target: '{entry.ActionTarget}'");
 
         try
         {
-            switch (entry.ActionType?.ToLower())
+            var actionType = entry.ActionType?.ToLower();
+            _logger.LogWarning($"Processing action type: {actionType}");
+            
+            switch (actionType)
             {
                 case "emulator":
+                    _logger.LogWarning($"Calling LaunchEmulator with emulator='{entry.ActionTarget}'");
                     LaunchEmulator(entry.ActionTarget, entry.ActionArgs);
                     break;
                 case "file":
+                    _logger.LogWarning($"Calling LaunchFile with file='{entry.ActionTarget}'");
                     LaunchFile(entry.ActionTarget);
                     break;
                 case "url":
@@ -473,26 +630,88 @@ public class RfidWorker : BackgroundService
 
     private void LaunchEmulator(string? emulatorName, Dictionary<string, string>? args)
     {
-        if (string.IsNullOrEmpty(emulatorName) || _emulators == null || !_emulators.TryGetValue(emulatorName, out var emulator))
+        _logger.LogWarning($"LaunchEmulator called with: {emulatorName}");
+        _logger.LogWarning($"_emulators is null: {_emulators == null}");
+        _logger.LogWarning($"_emulators count: {_emulators?.Count ?? 0}");
+        
+        if (_emulators == null || _emulators.Count == 0)
         {
-            _logger.LogError($"Emulator not found: {emulatorName}");
+            _logger.LogWarning("Emulators not loaded, attempting to reload...");
+            LoadEmulatorsFromDisk();
+        }
+        
+        if (string.IsNullOrEmpty(emulatorName))
+        {
+            _logger.LogError($"Emulator name is null or empty");
             return;
         }
+        
+        if (_emulators == null || !_emulators.TryGetValue(emulatorName, out var emulator))
+        {
+            _logger.LogError($"Emulator not found: {emulatorName}");
+            if (_emulators != null)
+            {
+                _logger.LogError($"Available emulators: {string.Join(", ", _emulators.Keys)}");
+            }
+            return;
+        }
+
+        _logger.LogWarning($"Emulator found! Name: {emulator.Name}, Executable: {emulator.Executable}");
 
         TerminateOtherEmulators(emulatorName, emulator);
 
         var cmdlineArgs = BuildArguments(emulator, args);
-        _logger.LogInformation($"Launching {emulatorName} with args: {cmdlineArgs}");
+        _logger.LogWarning($"Launching {emulatorName} with args: {cmdlineArgs}");
 
         try
         {
+            _logger.LogWarning($"About to start process: {emulator.Executable}");
             var psi = new ProcessStartInfo
             {
                 FileName = emulator.Executable!,
                 Arguments = cmdlineArgs,
-                UseShellExecute = true
+                UseShellExecute = true,
+                WindowStyle = ProcessWindowStyle.Normal
             };
-            Process.Start(psi);
+            var process = Process.Start(psi);
+            _logger.LogWarning($"Process.Start() called successfully!");
+            
+            // Aggressively bring window to foreground (retry multiple times)
+            if (process != null)
+            {
+                Task.Run(async () =>
+                {
+                    // Try multiple times with increasing delays to combat focus stealing
+                    var delays = new[] { 100, 300, 500, 800, 1200 };
+                    foreach (var delay in delays)
+                    {
+                        await Task.Delay(delay);
+                        try
+                        {
+                            process.Refresh();
+                            if (!process.HasExited)
+                            {
+                                // Get main window handle
+                                var handle = process.MainWindowHandle;
+                                if (handle == IntPtr.Zero)
+                                {
+                                    // Window might not be ready, wait for next retry
+                                    continue;
+                                }
+                                
+                                // Force window to foreground
+                                ShowWindow(handle, SW_RESTORE);
+                                SetForegroundWindow(handle);
+                                _logger.LogInformation($"Activated {emulatorName} window (attempt at {delay}ms)");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, $"Could not activate window at {delay}ms delay");
+                        }
+                    }
+                });
+            }
         }
         catch (Exception ex)
         {

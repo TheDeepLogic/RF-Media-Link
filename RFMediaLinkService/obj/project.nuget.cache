@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "RiyotFIXe+o=",
+  "dgSpecHash": "m04yBwX9D9A=",
   "success": true,
-  "projectFilePath": "c:\\dev\\RFMediaLink\\RFMediaLinkService\\RFMediaLinkService.csproj",
+  "projectFilePath": "D:\\OneDrive\\Software\\Vintage\\_GitHub\\RF-Media-Link\\RFMediaLinkService\\RFMediaLinkService.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\aaron\\.nuget\\packages\\microsoft.extensions.configuration\\8.0.0\\microsoft.extensions.configuration.8.0.0.nupkg.sha512",
     "C:\\Users\\aaron\\.nuget\\packages\\microsoft.extensions.configuration.abstractions\\8.0.0\\microsoft.extensions.configuration.abstractions.8.0.0.nupkg.sha512",

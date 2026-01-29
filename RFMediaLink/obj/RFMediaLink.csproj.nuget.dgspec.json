@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "c:\\dev\\RFMediaLink\\RFMediaLink\\RFMediaLink.csproj": {}
+    "D:\\OneDrive\\Software\\Vintage\\_GitHub\\RF-Media-Link\\RFMediaLink\\RFMediaLink.csproj": {}
   },
   "projects": {
-    "c:\\dev\\RFMediaLink\\RFMediaLink\\RFMediaLink.csproj": {
+    "D:\\OneDrive\\Software\\Vintage\\_GitHub\\RF-Media-Link\\RFMediaLink\\RFMediaLink.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "c:\\dev\\RFMediaLink\\RFMediaLink\\RFMediaLink.csproj",
+        "projectUniqueName": "D:\\OneDrive\\Software\\Vintage\\_GitHub\\RF-Media-Link\\RFMediaLink\\RFMediaLink.csproj",
         "projectName": "RFMediaLink",
-        "projectPath": "c:\\dev\\RFMediaLink\\RFMediaLink\\RFMediaLink.csproj",
+        "projectPath": "D:\\OneDrive\\Software\\Vintage\\_GitHub\\RF-Media-Link\\RFMediaLink\\RFMediaLink.csproj",
         "packagesPath": "C:\\Users\\aaron\\.nuget\\packages\\",
-        "outputPath": "c:\\dev\\RFMediaLink\\RFMediaLink\\obj\\",
+        "outputPath": "D:\\OneDrive\\Software\\Vintage\\_GitHub\\RF-Media-Link\\RFMediaLink\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

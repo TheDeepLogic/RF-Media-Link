@@ -24,6 +24,22 @@ class RFMediaLinkConfigurator
     private static JsonElement Catalog => CatalogDoc?.RootElement ?? default;
     private static JsonElement Emulators => EmulatorsDoc?.RootElement ?? default;
 
+    // Helper method to find a tag UID case-insensitively
+    private static string? FindTagUid(string searchUid)
+    {
+        if (Catalog.ValueKind != JsonValueKind.Object) return null;
+        
+        var searchUidUpper = searchUid.ToUpperInvariant();
+        foreach (var tag in Catalog.EnumerateObject())
+        {
+            if (tag.Name.ToUpperInvariant() == searchUidUpper)
+            {
+                return tag.Name;
+            }
+        }
+        return null;
+    }
+
     [STAThread]
     static void Main(string[] args)
     {
@@ -83,21 +99,32 @@ class RFMediaLinkConfigurator
 
     private static void FindConfigDir()
     {
-        string appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RFMediaLink");
-        if (Directory.Exists(appDataPath) && File.Exists(Path.Combine(appDataPath, "config.json")))
+        // Check ProgramData first (new default location for service)
+        string programDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "RFMediaLink");
+        if (Directory.Exists(programDataPath) && File.Exists(Path.Combine(programDataPath, "config.json")))
         {
-            ConfigDir = appDataPath;
+            ConfigDir = programDataPath;
         }
         else
         {
-            string progFilesPath = @"C:\Program Files\RFMediaLink";
-            if (Directory.Exists(progFilesPath) && File.Exists(Path.Combine(progFilesPath, "config.json")))
+            // Fallback to LocalAppData for backward compatibility
+            string appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RFMediaLink");
+            if (Directory.Exists(appDataPath) && File.Exists(Path.Combine(appDataPath, "config.json")))
             {
-                ConfigDir = progFilesPath;
+                ConfigDir = appDataPath;
             }
             else
             {
-                ConfigDir = appDataPath;
+                string progFilesPath = @"C:\Program Files\RFMediaLink";
+                if (Directory.Exists(progFilesPath) && File.Exists(Path.Combine(progFilesPath, "config.json")))
+                {
+                    ConfigDir = progFilesPath;
+                }
+                else
+                {
+                    // Default to ProgramData if nothing found
+                    ConfigDir = programDataPath;
+                }
             }
         }
 
@@ -241,7 +268,7 @@ class RFMediaLinkConfigurator
         }
 
         Console.Write("Enter Tag UID to edit: ");
-        string uid = Console.ReadLine() ?? "";
+        string uid = (Console.ReadLine() ?? "").Trim();
 
         if (string.IsNullOrEmpty(uid))
         {
@@ -250,13 +277,16 @@ class RFMediaLinkConfigurator
             return;
         }
 
-        // Check if tag exists
-        if (!Catalog.TryGetProperty(uid, out var existingTag))
+        // Check if tag exists (case-insensitive)
+        var foundUid = FindTagUid(uid);
+        if (foundUid == null)
         {
             Console.WriteLine($"Tag {uid} not found.");
             System.Threading.Thread.Sleep(1500);
             return;
         }
+
+        var existingTag = Catalog.GetProperty(foundUid);
 
         // Get existing values
         string existingName = existingTag.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
@@ -675,7 +705,7 @@ class RFMediaLinkConfigurator
 
     private static string WaitForScan()
     {
-        string scanFile = Path.Combine(ConfigDir, "last_scan.txt");
+        string scanFile = Path.Combine(ConfigDir, "scan_null.log");
         
         // Delete any existing scan file FIRST
         try { File.Delete(scanFile); } catch { }

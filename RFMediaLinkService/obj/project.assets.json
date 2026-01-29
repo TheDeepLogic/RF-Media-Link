@@ -2084,11 +2084,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\dev\\RFMediaLink\\RFMediaLinkService\\RFMediaLinkService.csproj",
+      "projectUniqueName": "D:\\OneDrive\\Software\\Vintage\\_GitHub\\RF-Media-Link\\RFMediaLinkService\\RFMediaLinkService.csproj",
       "projectName": "RFMediaLinkService",
-      "projectPath": "C:\\dev\\RFMediaLink\\RFMediaLinkService\\RFMediaLinkService.csproj",
+      "projectPath": "D:\\OneDrive\\Software\\Vintage\\_GitHub\\RF-Media-Link\\RFMediaLinkService\\RFMediaLinkService.csproj",
       "packagesPath": "C:\\Users\\aaron\\.nuget\\packages\\",
-      "outputPath": "C:\\dev\\RFMediaLink\\RFMediaLinkService\\obj\\",
+      "outputPath": "D:\\OneDrive\\Software\\Vintage\\_GitHub\\RF-Media-Link\\RFMediaLinkService\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
