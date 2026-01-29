@@ -168,22 +168,27 @@ if (Test-Path $configurePublishDir) {
 
 # Copy JSON config files (only if they don't exist)
 $sourceDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-foreach ($file in @("config.json", "catalog.json", "emulators.json")) {
-    $sourcePath = Join-Path $parentDir $file
-    $destPath = "$InstallDir\$file"
-    if (Test-Path $sourcePath) {
+$configFiles = @(
+    @{ Name = "config.json"; Source = Join-Path $parentDir "config.json" }
+    @{ Name = "catalog.json"; Source = Join-Path $parentDir "catalog.json" }
+    @{ Name = "emulators.json"; Source = Join-Path $parentDir "inc\emulators.json" }
+)
+
+foreach ($file in $configFiles) {
+    $destPath = "$InstallDir\$($file.Name)"
+    if (Test-Path $file.Source) {
         if (-not (Test-Path $destPath)) {
-            Copy-Item -Path $sourcePath -Destination $destPath
-            Write-Host "Copied $file"
+            Copy-Item -Path $file.Source -Destination $destPath
+            Write-Host "Copied $($file.Name)"
         } else {
-            Write-Host "Skipped $file (already exists)"
+            Write-Host "Skipped $($file.Name) (already exists)"
         }
     }
 }
 
 # Copy service management scripts
 $deploymentDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-foreach ($file in @("start-service.ps1", "stop-service.ps1", "restart-service.ps1", "uninstall.ps1", "open-catalog.bat", "open-emulators.bat")) {
+foreach ($file in @("start-service.ps1", "stop-service.ps1", "restart-service.ps1", "update-service.ps1", "uninstall.ps1", "open-catalog.bat", "open-emulators.bat")) {
     $sourcePath = Join-Path $deploymentDir $file
     $destPath = "$InstallDir\$file"
     if (Test-Path $sourcePath) {
@@ -258,14 +263,14 @@ $startMenuShortcut = Join-Path $StartMenuFolder "RF Media Link Configure.lnk"
 Create-Shortcut -TargetPath $configuratorPath -ShortcutPath $startMenuShortcut -Description "RF Media Link Configurator" -WorkingDirectory $InstallDir -IconLocation $iconPath
 
 # Start Menu - Service Management shortcuts
-$serviceManagementShortcut = Join-Path $StartMenuFolder "Manage Service.lnk"
-Create-Shortcut -TargetPath "taskmgr.exe" -ShortcutPath $serviceManagementShortcut -Description "Task Manager - View RF Media Link process" -IconLocation $iconPath -Arguments "/7"
-
 $startServiceShortcut = Join-Path $StartMenuFolder "Start Service.lnk"
 Create-Shortcut -TargetPath $exePath -ShortcutPath $startServiceShortcut -Description "Start RF Media Link Service" -IconLocation $iconPath -WorkingDirectory $InstallDir
 
 $stopServiceShortcut = Join-Path $StartMenuFolder "Stop Service.lnk"
 Create-Shortcut -TargetPath "taskkill.exe" -ShortcutPath $stopServiceShortcut -Description "Stop RF Media Link Service" -IconLocation $iconPath -Arguments "/IM RFMediaLinkService.exe /F"
+
+$restartServiceShortcut = Join-Path $StartMenuFolder "Restart Service.lnk"
+Create-Shortcut -TargetPath "powershell.exe" -ShortcutPath $restartServiceShortcut -Description "Restart RF Media Link Service" -IconLocation $iconPath -Arguments "-ExecutionPolicy Bypass -File `"$InstallDir\restart-service.ps1`""
 
 # Start Menu - Configuration file shortcuts
 $catalogShortcut = Join-Path $StartMenuFolder "Edit Catalog.lnk"
@@ -314,7 +319,7 @@ Write-Host "  - Desktop: RF Media Link Configure.lnk"
 Write-Host "  - Start Menu: Programs\RF Media Link\RF Media Link Configure.lnk"
 Write-Host "  - Start Menu: Programs\RF Media Link\Start Service.lnk"
 Write-Host "  - Start Menu: Programs\RF Media Link\Stop Service.lnk"
-Write-Host "  - Start Menu: Programs\RF Media Link\Manage Service.lnk"
+Write-Host "  - Start Menu: Programs\RF Media Link\Restart Service.lnk"
 Write-Host "  - Start Menu: Programs\RF Media Link\Edit Catalog.lnk"
 Write-Host "  - Start Menu: Programs\RF Media Link\Edit Emulators.lnk"
 Write-Host "  - Start Menu: Programs\RF Media Link\Uninstall.lnk"

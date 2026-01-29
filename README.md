@@ -1,21 +1,22 @@
 # RF Media Link - RFID Media Launcher
 
-**RF Media Link** is a Windows service that launches media applications, files, and commands via RFID tags. Scan a tag to instantly launch your media player with the correct content, application with specific parameters, or execute custom commands. Perfect for media libraries and content management workflows.
+**RF Media Link** is a Windows background application that launches media applications, files, and commands via RFID tags. Scan a tag to instantly launch your media player with the correct content, application with specific parameters, or execute custom commands. Perfect for media libraries and content management workflows.
 
 > **AI-Assisted Development Notice**  
-> This project was developed with GitHub Copilot assistance (Claude Haiku 4.5). The codebase and documentation were AI-generated based on specifications and iterative refinement. While functional and tested, please review code before production use and submit pull requests for any corrections.
+> This project was developed with GitHub Copilot assistance (Claude Sonnet 4.5). The codebase and documentation were AI-generated based on specifications and iterative refinement. While functional and tested, please review code before production use and submit pull requests for any corrections.
 
 ---
 
 ## Features
 
-- **Windows Service**: Runs in background monitoring RFID reader
+- **Startup Application**: Runs in background monitoring RFID reader (launches at login)
 - **Console Configuration Tool**: Easy tag and application management
-- **Multiple Application Support**: Media players, file explorers, browsers, custom apps
+- **Multiple Application Support**: Media players, emulators, file explorers, browsers, custom apps
 - **Flexible Actions**: Launch applications, open files, navigate URLs, run commands
 - **Customizable Arguments**: File paths, choices, toggles, and flags per application
 - **Hot Reload**: Add tags via configurator while service runs
 - **JSON Configuration**: Easy backup, version control, and manual editing
+- **Foreground Activation**: Launched applications automatically receive focus
 
 > **Reader Compatibility Note**
 > RF Media Link is built around a **custom serial RFID reader** for this project. See the parts list in [BOM.md](BOM.md) and the ESP32 serial firmware in [host_examples/esp32c3_rfid_reader_with_display.ino](host_examples/esp32c3_rfid_reader_with_display.ino). Most off‑the‑shelf HID/keyboard‑wedge readers will **not** work with the service.
@@ -30,9 +31,9 @@
 
 ### Requirements
 
-- **Windows 10/11** (Windows Service requires .NET 8.0 runtime)
+- **Windows 10/11** (.NET 8.0 runtime required)
 - **RFID Reader**: This project requires a **serial-output reader** compatible with the custom firmware described in [host_examples/README.md](host_examples/README.md) (see the ESP32 example with display). HID/keyboard-wedge readers are **not supported**.
-- **Applications**: Install your chosen media applications
+- **Applications**: Install your chosen media applications or emulators
 
 ### Installation
 
@@ -49,33 +50,33 @@
 3. **Run the installer** (as Administrator):
    ```powershell
    cd deployment
-   .\install-rfmedialink.ps1
+   .\install-rfmedialink.bat
    ```
    
    This will:
-   - Copy binaries to `%LOCALAPPDATA%\RFMediaLink\`
-   - Install the Windows Service
+   - Copy binaries to `C:\ProgramData\RFMediaLink\`
+   - Add to Windows Startup (runs at login)
+   - Start the service immediately
    - Create desktop and Start Menu shortcuts
-   - Create configuration files
+   - Create default configuration files
 
 4. **Configure the serial port**:
-   - Edit `%LOCALAPPDATA%\RFMediaLink\config.json`
+   - Run the **RF Media Link Configure** shortcut, or
+   - Edit `C:\ProgramData\RFMediaLink\config.json` manually
    - Set `serial_port` to your RFID reader's COM port (e.g., `"COM3"`)
    - Set `baud_rate` if different from 115200
+   - The service will automatically reload when you save the file
 
-5. **Start the service**:
-   ```powershell
-   Start-Service "RF Media Link"
-   ```
+5. **Service is running**:
+   - The service starts automatically at login
+   - Runs minimized in the background
+   - Use Start Menu shortcuts to stop/start/restart as needed
 
 ### First Tag Setup
 
 1. **Run the configurator**:
-   - Click the **RF Media Link** shortcut on your desktop, or
-   ```powershell
-   cd %LOCALAPPDATA%\RFMediaLink
-   .\RFMediaLink.exe
-   ```
+   - Click the **RF Media Link Configure** shortcut on your desktop, or
+   - From Start Menu: Programs → RF Media Link → RF Media Link Configure
 
 2. **Add a tag**:
    - Press `A` to add tag
@@ -99,14 +100,14 @@
 
 ## Configuration Files
 
-All files are stored in `%LOCALAPPDATA%\RFMediaLink\`:
+All files are stored in `C:\ProgramData\RFMediaLink\`:
 
 ### `config.json`
 ```json
 {
   "serial_port": "COM3",
   "baud_rate": 115200,
-  "default_app": "vlc"
+  "default_emulator": "applewin"
 }
 ```
 
@@ -115,11 +116,13 @@ Maps RFID UIDs to actions:
 ```json
 {
   "66 DC 6E 05": {
-    "name": "Movie Collection",
-    "action_type": "app",
-    "action_target": "vlc",
+    "name": "Apple II Game - Choplifter",
+    "action_type": "emulator",
+    "action_target": "applewin",
     "action_args": {
-      "file": "D:\\Media\\Movies\\MyMovie.mp4"
+      "model": "apple2ee",
+      "disk1": "D:\\Games\\Apple\\Choplifter.dsk",
+      "fullscreen": "true"
     }
   }
 }
@@ -129,30 +132,30 @@ Maps RFID UIDs to actions:
 Defines available applications and their arguments:
 ```json
 {
-  "vlc": {
-    "name": "VLC Media Player",
-    "executable": "C:\\Program Files\\VideoLAN\\VLC\\vlc.exe",
+  "applewin": {
+    "name": "AppleWin",
+    "executable": "C:\\Emulators\\AppleWin\\AppleWin.exe",
     "arguments": [
       {
-        "name": "file",
-        "type": "file",
-        "label": "Media File",
-        "flag": ""
-      }
-    ]
-  },
-  "explorer": {
-    "name": "File Explorer",
-    "executable": "explorer.exe",
-    "arguments": [
+        "name": "model",
+        "type": "choice",
+        "label": "Apple II Model",
+        "flag": "-model",
+        "choices": ["apple2", "apple2p", "apple2e", "apple2ee"],
+        "default": "apple2ee"
+      },
       {
-        "name": "path",
+        "name": "disk1",
         "type": "file",
-        "label": "Folder Path",
-        "flag": ""
-      }
-    ]
-  },
+        "label": "Disk 1",
+        "flag": "-d1"
+      },
+      {
+        "name": "fullscreen",
+        "type": "toggle",
+        "label": "Fullscreen",
+        "flag": "-f",
+        "default": "false"
       }
     ]
   }
@@ -268,7 +271,7 @@ Run `configure.bat` or `RFMediaLink.exe` directly.
 ═══════════════════════════════════════════════════════
   RF Media Link Configuration Tool
 ═══════════════════════════════════════════════════════
-Config Location: C:\Users\...\AppData\Local\RFMediaLink
+Config Location: C:\ProgramData\RFMediaLink
 
 1. Manage Tags
 2. View Emulators
@@ -376,12 +379,14 @@ cd deployment
 
 ### Service won't start
 
-1. Check serial port in `config.json` matches your RFID reader
-2. Verify .NET 8.0 Runtime is installed
-3. Check Event Viewer for errors:
+1. Check if already running: `Get-Process -Name "RFMediaLinkService"`
+2. Check serial port in `config.json` matches your RFID reader
+3. Verify .NET 8.0 Runtime is installed
+4. Check Event Viewer for errors:
   ```powershell
   Get-EventLog -LogName Application -Source "RF Media Link" -Newest 10
   ```
+5. Try running manually: `C:\ProgramData\RFMediaLink\RFMediaLinkService.exe`
 
 ### Tag not recognized
 

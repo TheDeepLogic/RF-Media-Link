@@ -1,41 +1,31 @@
 # Restart RF Media Link Service
-# Requires Administrator privileges
+# Can run without admin privileges
 
-$ServiceName = "RF Media Link"
+$InstallDir = "$env:ProgramData\RFMediaLink"
 
-# Check if running as admin
-$currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
-$principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
-$isAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+Write-Host "Restarting RF Media Link Service..." -ForegroundColor Yellow
 
-if (-not $isAdmin) {
-    # Relaunch as administrator
-    Start-Process powershell.exe -Verb RunAs -ArgumentList "-ExecutionPolicy Bypass -File `"$PSCommandPath`""
-    exit
-}
-
-Write-Host "Restarting RF Media Link Service..."
-$service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
-
-if (-not $service) {
-    Write-Host "Error: Service not found!" -ForegroundColor Red
-    pause
-    exit 1
-}
-
-Write-Host "Stopping service..."
-Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
+# Stop the service
+Write-Host "Stopping service..." -ForegroundColor Yellow
+Get-Process -Name "RFMediaLinkService" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2
 
-Write-Host "Starting service..."
-Start-Service -Name $ServiceName -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 2
-
-$service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
-if ($service.Status -eq "Running") {
-    Write-Host "Service restarted successfully!" -ForegroundColor Green
+# Start the service
+Write-Host "Starting service..." -ForegroundColor Yellow
+$exePath = "$InstallDir\RFMediaLinkService.exe"
+if (Test-Path $exePath) {
+    Start-Process -FilePath $exePath -WorkingDirectory $InstallDir -WindowStyle Minimized
+    Start-Sleep -Seconds 2
+    
+    $process = Get-Process -Name "RFMediaLinkService" -ErrorAction SilentlyContinue
+    if ($process) {
+        Write-Host "Service restarted successfully (PID: $($process.Id))" -ForegroundColor Green
+    } else {
+        Write-Warning "Service may not have started. Check for errors."
+    }
 } else {
-    Write-Host "Failed to restart service. Status: $($service.Status)" -ForegroundColor Red
+    Write-Error "Service executable not found: $exePath"
 }
 
+Write-Host ""
 pause
