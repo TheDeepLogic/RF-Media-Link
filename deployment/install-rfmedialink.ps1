@@ -325,11 +325,17 @@ Write-Host "Scheduled task created (runs at login with elevated privileges)"
 # Create shortcuts BEFORE starting service
 Write-Host "Creating shortcuts..."
 
-# Find icon file
-$iconPath = Join-Path (Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)) "inc\RFMediaLink.ico"
-if (-not (Test-Path $iconPath)) {
-    $iconPath = ""
-    Write-Warning "Icon file not found at $iconPath"
+# Find icon file - check both release and dev locations
+$iconPath = ""
+if (Test-Path $incDir) {
+    $testIconPath = Join-Path $incDir "RFMediaLink.ico"
+    if (Test-Path $testIconPath) {
+        $iconPath = $testIconPath
+    }
+}
+
+if (-not $iconPath) {
+    Write-Warning "Icon file not found in $incDir"
 }
 
 # Desktop shortcut

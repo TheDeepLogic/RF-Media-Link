@@ -7,7 +7,10 @@ echo   Building RF Media Link for Release
 echo ============================================
 echo.
 
-set ROOT_DIR=%~dp0
+REM Get parent directory (repo root)
+set SCRIPT_DIR=%~dp0
+cd /d "%SCRIPT_DIR%.."
+set ROOT_DIR=%CD%\
 
 REM Build RFMediaLinkService
 echo [1/2] Building RFMediaLinkService...

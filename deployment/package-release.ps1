@@ -9,8 +9,9 @@ Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
 
 # Get paths
-$rootDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$releaseDir = Join-Path $rootDir "release"
+$deploymentDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$rootDir = Split-Path -Parent $deploymentDir
+$releaseDir = Join-Path $deploymentDir "release"
 $packageDir = Join-Path $releaseDir "RFMediaLink-Installer-x64"
 
 # Get version from service assembly (you can update this manually for each release)
