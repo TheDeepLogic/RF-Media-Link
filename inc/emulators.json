@@ -146,6 +146,23 @@
       }
     ]
   },
+  "nes": {
+    "name": "FCEUX",
+    "executable": "D:\\OneDrive\\Software\\Emulation\\Emulators\\NES\\fceux\\fceux.exe",
+    "close_on_launch": {
+      "close_other_instances": true,
+      "close_other_emulators": true
+    },
+    "arguments": [
+      {
+        "name": "rom_file",
+        "type": "file",
+        "label": "ROM File",
+        "flag": "",
+        "required": false
+      }
+    ]
+  },
   "snes9x": {
     "name": "SNES9x",
     "executable": "D:\\OneDrive\\Software\\Emulation\\Emulators\\Super Nintendo\\Super Nintendo.exe",

@@ -127,6 +127,9 @@ public class RfidWorker : BackgroundService
     private string _lineBuffer = "";
     private FileSystemWatcher? _catalogWatcher;
     private System.Threading.Timer? _catalogReloadTimer;
+    private bool _isSerialPortConnected = false;
+    private DateTime _lastConnectionAttempt = DateTime.MinValue;
+    private const int RECONNECT_INTERVAL_SECONDS = 5;
 
     public RfidWorker(ILogger<RfidWorker> logger)
     {
@@ -487,25 +490,45 @@ public class RfidWorker : BackgroundService
         }
     }
 
-    private void InitializeSerialPort()
+    private bool InitializeSerialPort()
     {
         try
         {
+            // Close existing port if open
+            if (_serialPort != null)
+            {
+                try
+                {
+                    if (_serialPort.IsOpen)
+                        _serialPort.Close();
+                    _serialPort.DataReceived -= SerialPort_DataReceived;
+                    _serialPort.Dispose();
+                }
+                catch { }
+                _serialPort = null;
+            }
+
             if (string.IsNullOrEmpty(_config?.SerialPort))
             {
                 _logger.LogWarning("SerialPort not configured, running without RFID scanner");
-                return;
+                _isSerialPortConnected = false;
+                return false;
             }
 
             _serialPort = new SerialPort(_config.SerialPort, _config.BaudRate, Parity.None, 8, StopBits.One);
             _serialPort.DataReceived += SerialPort_DataReceived;
+            _serialPort.ErrorReceived += SerialPort_ErrorReceived;
             _serialPort.Open();
             _logger.LogInformation($"Serial port opened: {_config.SerialPort} @ {_config.BaudRate} baud");
+            _isSerialPortConnected = true;
+            return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"Error initializing serial port {_config?.SerialPort}. Service will run without RFID scanner.");
+            _logger.LogError(ex, $"Error initializing serial port {_config?.SerialPort}. Will retry...");
             _serialPort = null;
+            _isSerialPortConnected = false;
+            return false;
         }
     }
 
@@ -529,10 +552,28 @@ public class RfidWorker : BackgroundService
                 }
             }
         }
+        catch (InvalidOperationException)
+        {
+            // Port was closed/disconnected
+            _logger.LogWarning("Serial port disconnected during read operation");
+            _isSerialPortConnected = false;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error reading serial data");
+            // Check if error indicates disconnection
+            if (ex is IOException || ex is TimeoutException)
+            {
+                _isSerialPortConnected = false;
+            }
         }
+    }
+
+    private void SerialPort_ErrorReceived(object sender, SerialErrorReceivedEventArgs e)
+    {
+        _logger.LogWarning($"Serial port error received: {e.EventType}");
+        // Mark as disconnected so the monitor will try to reconnect
+        _isSerialPortConnected = false;
     }
 
     private void ProcessLine(string line)
@@ -893,16 +934,81 @@ public class RfidWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        _logger.LogInformation("Starting serial port monitoring loop...");
+        
         while (!stoppingToken.IsCancellationRequested)
         {
+            try
+            {
+                // Check if serial port needs reconnection
+                if (!_isSerialPortConnected && !string.IsNullOrEmpty(_config?.SerialPort))
+                {
+                    // Only attempt reconnect if enough time has passed
+                    var timeSinceLastAttempt = DateTime.Now - _lastConnectionAttempt;
+                    if (timeSinceLastAttempt.TotalSeconds >= RECONNECT_INTERVAL_SECONDS)
+                    {
+                        _lastConnectionAttempt = DateTime.Now;
+                        _logger.LogInformation($"Attempting to reconnect to serial port {_config.SerialPort}...");
+                        
+                        if (InitializeSerialPort())
+                        {
+                            _logger.LogInformation("Serial port reconnected successfully!");
+                        }
+                    }
+                }
+                // Verify connection is still valid
+                else if (_isSerialPortConnected && _serialPort != null)
+                {
+                    try
+                    {
+                        // Quick check if port is still open
+                        if (!_serialPort.IsOpen)
+                        {
+                            _logger.LogWarning("Serial port connection lost (port closed)");
+                            _isSerialPortConnected = false;
+                        }
+                    }
+                    catch
+                    {
+                        _logger.LogWarning("Serial port connection lost (exception during check)");
+                        _isSerialPortConnected = false;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in serial port monitoring loop");
+            }
+            
             await Task.Delay(1000, stoppingToken);
         }
+        
+        _logger.LogInformation("Serial port monitoring loop stopped");
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("RF Media Link Service stopping...");
-        _serialPort?.Dispose();
+        
+        _isSerialPortConnected = false;
+        
+        if (_serialPort != null)
+        {
+            try
+            {
+                if (_serialPort.IsOpen)
+                    _serialPort.Close();
+                _serialPort.DataReceived -= SerialPort_DataReceived;
+                _serialPort.ErrorReceived -= SerialPort_ErrorReceived;
+                _serialPort.Dispose();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error disposing serial port");
+            }
+            _serialPort = null;
+        }
+        
         await base.StopAsync(cancellationToken);
         _logger.LogInformation("RF Media Link Service stopped");
     }
