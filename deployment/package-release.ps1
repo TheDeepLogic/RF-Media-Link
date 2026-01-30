@@ -1,6 +1,10 @@
 # Package RF Media Link for Release Distribution
 # Creates a complete installer package for GitHub releases
 
+param(
+    [switch]$AutoZip
+)
+
 $ErrorActionPreference = "Stop"
 
 Write-Host "============================================" -ForegroundColor Cyan
@@ -15,7 +19,8 @@ $releaseDir = Join-Path $deploymentDir "release"
 $packageDir = Join-Path $releaseDir "RFMediaLink-Installer-x64"
 
 # Get version from service assembly (you can update this manually for each release)
-$version = "1.0.0"  # TODO: Extract from AssemblyInfo or add version file
+# UPDATE THIS FOR EACH RELEASE: Increment version number here
+$version = "1.0.1"
 
 Write-Host "Packaging version: $version" -ForegroundColor Yellow
 Write-Host ""
@@ -169,7 +174,13 @@ Write-Host "  3. Upload to GitHub Releases" -ForegroundColor White
 Write-Host ""
 
 # Offer to create ZIP
-$createZip = Read-Host "Create ZIP archive now? (y/n)"
+$createZip = 'n'
+if ($AutoZip) {
+    $createZip = 'y'
+} else {
+    $createZip = Read-Host "Create ZIP archive now? (y/n)"
+}
+
 if ($createZip -eq 'y' -or $createZip -eq 'Y') {
     $zipPath = Join-Path $releaseDir "RFMediaLink-Installer-x64-v$version.zip"
     if (Test-Path $zipPath) {
@@ -180,4 +191,6 @@ if ($createZip -eq 'y' -or $createZip -eq 'Y') {
     Write-Host "ZIP created: $zipPath" -ForegroundColor Green
 }
 
-pause
+if (-not $AutoZip) {
+    pause
+}
