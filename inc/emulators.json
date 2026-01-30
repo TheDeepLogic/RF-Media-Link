@@ -134,6 +134,7 @@
         "type": "toggle",
         "label": "Fullscreen",
         "flag": "-fullscreen 1",
+        "default": true,
         "required": false
       },
       {

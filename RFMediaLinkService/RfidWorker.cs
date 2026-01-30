@@ -763,10 +763,19 @@ public class RfidWorker : BackgroundService
                 case "flag":
                 case "choice":
                 case "file":
-                    if (!string.IsNullOrEmpty(value) && !string.IsNullOrEmpty(arg.Flag))
+                    if (!string.IsNullOrEmpty(value))
                     {
-                        args.Add($"{arg.Flag}");
-                        args.Add($"\"{value}\"");
+                        if (!string.IsNullOrEmpty(arg.Flag))
+                        {
+                            // Flag is specified, add flag then value
+                            args.Add($"{arg.Flag}");
+                            args.Add($"\"{value}\"");
+                        }
+                        else
+                        {
+                            // No flag specified, treat as positional argument
+                            args.Add($"\"{value}\"");
+                        }
                     }
                     break;
                 case "positional":
