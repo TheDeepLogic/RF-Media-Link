@@ -2,7 +2,8 @@
 # Run as Administrator
 
 param(
-    [switch]$ServiceOnly
+    [switch]$ServiceOnly,
+    [switch]$SkipBuild
 )
 
 $serviceName = "RF Media Link"
@@ -21,20 +22,84 @@ if (-not $isAdmin) {
     exit
 }
 
+# Build first unless SkipBuild is specified
+if (-not $SkipBuild) {
+    Write-Host "Building latest version..." -ForegroundColor Yellow
+    
+    # Build service
+    $serviceProject = Join-Path $parentDir "RFMediaLinkService\RFMediaLinkService.csproj"
+    if (Test-Path $serviceProject) {
+        Write-Host "Building RFMediaLinkService..." -ForegroundColor Cyan
+        Push-Location (Split-Path $serviceProject)
+        dotnet publish -c Release
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Service build failed!"
+            Pop-Location
+            pause
+            exit 1
+        }
+        Pop-Location
+        Write-Host "Service build complete" -ForegroundColor Green
+    } else {
+        Write-Error "Service project not found: $serviceProject"
+        pause
+        exit 1
+    }
+    
+    # Build configurator if not ServiceOnly
+    if (-not $ServiceOnly) {
+        $configProject = Join-Path $parentDir "RFMediaLink\RFMediaLink.csproj"
+        if (Test-Path $configProject) {
+            Write-Host "Building RFMediaLink configurator..." -ForegroundColor Cyan
+            Push-Location (Split-Path $configProject)
+            dotnet publish -c Release
+            if ($LASTEXITCODE -ne 0) {
+                Write-Error "Configurator build failed!"
+                Pop-Location
+                pause
+                exit 1
+            }
+            Pop-Location
+            Write-Host "Configurator build complete" -ForegroundColor Green
+        }
+    }
+    Write-Host ""
+}
+
 Write-Host "Stopping RF Media Link Service..." -ForegroundColor Yellow
 # Stop old Windows Service if it exists
 Stop-Service $serviceName -Force -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 1
+Start-Sleep -Seconds 2
 
 # Force kill any remaining processes
 Get-Process -Name "RFMediaLinkService" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Get-Process -Name "RFMediaLink" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 1
+Start-Sleep -Seconds 2
+
+# Wait for files to be released
+$maxWait = 10
+$waited = 0
+while ($waited -lt $maxWait) {
+    $serviceExe = Join-Path $installDir "RFMediaLinkService.exe"
+    if (Test-Path $serviceExe) {
+        try {
+            $stream = [System.IO.File]::Open($serviceExe, 'Open', 'ReadWrite', 'None')
+            $stream.Close()
+            break
+        } catch {
+            Start-Sleep -Seconds 1
+            $waited++
+        }
+    } else {
+        break
+    }
+}
 
 Write-Host "Updating service binaries..." -ForegroundColor Yellow
 $servicePublishDir = Join-Path $parentDir "RFMediaLinkService\bin\Release\net8.0-windows\publish"
 if (Test-Path $servicePublishDir) {
     $filesCopied = 0
+    $errors = 0
     Get-ChildItem -Path $servicePublishDir -Recurse | ForEach-Object {
         $targetPath = $_.FullName.Replace($servicePublishDir, $installDir)
         if ($_.PSIsContainer) {
@@ -42,9 +107,17 @@ if (Test-Path $servicePublishDir) {
                 New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
             }
         } else {
-            Copy-Item -Path $_.FullName -Destination $targetPath -Force
-            $filesCopied++
+            try {
+                Copy-Item -Path $_.FullName -Destination $targetPath -Force -ErrorAction Stop
+                $filesCopied++
+            } catch {
+                Write-Warning "Failed to copy $($_.Name): $($_.Exception.Message)"
+                $errors++
+            }
         }
+    }
+    if ($errors -gt 0) {
+        Write-Warning "Failed to copy $errors file(s). Some files may be in use."
     }
     Write-Host "Service files copied: $filesCopied files" -ForegroundColor Green
 } else {
@@ -81,5 +154,7 @@ if ($process) {
 
 Write-Host ""
 Write-Host "Update complete!" -ForegroundColor Green
-Write-Host "Use -ServiceOnly flag to update only the service (faster)"
+Write-Host "Usage: update-service.ps1 [-ServiceOnly] [-SkipBuild]" -ForegroundColor Cyan
+Write-Host "  -ServiceOnly: Update only the service (skip configurator)"
+Write-Host "  -SkipBuild:   Skip rebuilding (use existing binaries)"
 pause

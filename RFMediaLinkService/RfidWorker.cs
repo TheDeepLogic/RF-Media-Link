@@ -91,11 +91,11 @@ public class EmulatorArgument
 
 public class CloseOnLaunchSettings
 {
-    [JsonPropertyName("enabled")]
-    public bool Enabled { get; set; }
+    [JsonPropertyName("close_other_instances")]
+    public bool CloseOtherInstances { get; set; }
 
-    [JsonPropertyName("emulators")]
-    public List<string>? Emulators { get; set; }
+    [JsonPropertyName("close_other_emulators")]
+    public bool CloseOtherEmulators { get; set; }
 }
 
 public class RfidWorker : BackgroundService
@@ -783,12 +783,25 @@ public class RfidWorker : BackgroundService
 
     private void TerminateOtherEmulators(string activeEmulator, Emulator emulator)
     {
-        if (emulator.CloseOnLaunch?.Enabled != true || emulator.CloseOnLaunch.Emulators == null)
+        if (emulator.CloseOnLaunch == null)
             return;
 
-        foreach (var toClose in emulator.CloseOnLaunch.Emulators)
+        // Close other instances of the same emulator
+        if (emulator.CloseOnLaunch.CloseOtherInstances)
         {
-            TerminateEmulatorInstances(toClose);
+            TerminateEmulatorInstances(activeEmulator);
+        }
+
+        // Close all other emulators
+        if (emulator.CloseOnLaunch.CloseOtherEmulators && _emulators != null)
+        {
+            foreach (var otherEmulatorName in _emulators.Keys)
+            {
+                if (otherEmulatorName != activeEmulator)
+                {
+                    TerminateEmulatorInstances(otherEmulatorName);
+                }
+            }
         }
     }
 
@@ -797,7 +810,10 @@ public class RfidWorker : BackgroundService
         if (_emulators == null || !_emulators.TryGetValue(emulatorName, out var emulator))
             return;
 
-        var processName = Path.GetFileNameWithoutExtension(emulator.Path);
+        if (string.IsNullOrEmpty(emulator.Executable))
+            return;
+
+        var processName = Path.GetFileNameWithoutExtension(emulator.Executable);
         try
         {
             foreach (var proc in Process.GetProcessesByName(processName))
