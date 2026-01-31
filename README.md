@@ -32,6 +32,8 @@
 - **Numbered Tag Selection**: Select tags by number instead of typing full UIDs
 - **Backup & Restore System**: Automatic and manual backups to Documents\RFMediaLink\Backups with smart change detection
 - **Service Control**: Start, stop, and restart service directly from configurator
+- **Log Viewer**: View Event Logs with filtering (Recent, Errors & Warnings, Today) and detailed inspection
+- **Toast Notifications**: System notifications for scan errors and issues (no spam on successful scans)
 - **Emulator Management**: View and edit emulator definitions from configurator
 - **Auto-Reconnect**: Serial port automatically reconnects when RFID reader is unplugged/replugged
 - **Centralized Version Management**: Single VERSION file with semantic versioning (supports pre-release tags like `-dev`, `-alpha`, `-beta`)
@@ -286,15 +288,29 @@ Run `configure.bat` or `RFMediaLink.exe` directly.
 
 ```
 ═══════════════════════════════════════════════════════
-  RF Media Link Configuration Tool
+  RF Media Link Configuration Tool - v0.9.0-dev
 ═══════════════════════════════════════════════════════
 Config Location: C:\ProgramData\RFMediaLink
 
 1. Manage Tags
 2. View Emulators
-3. Settings
-4. Exit
+3. Service Control
+4. View Logs
+5. Backup & Restore
+6. Settings
+7. Exit
 ```
+
+### Service Control
+
+From the main menu, select **"3. Service Control"** to:
+
+1. **Start Service**: Launch the service via scheduled task
+2. **Stop Service**: Terminate the running service
+3. **Restart Service**: Stop and start in one action
+4. **Check Service Status**: Verify if service is running
+
+This eliminates the need to use PowerShell scripts or Task Manager for basic service management.
 
 ### Manage Tags
 
@@ -369,18 +385,52 @@ Or use the provided scripts in `C:\ProgramData\RFMediaLink\`:
 
 ### View Logs
 
-Service logs to Windows Event Viewer:
+**Option 1: Built-in Log Viewer (Recommended)**
+
+From the configurator main menu, select **"4. View Logs"** to access:
+
+1. **View Recent Logs (Last 50)**: See the most recent service activity
+2. **View Errors & Warnings**: Filter for issues only (errors, warnings, critical events)
+3. **View All Logs Today**: See everything logged since midnight
+4. **Open Event Viewer**: Launch Windows Event Viewer directly
+
+The log viewer displays:
+- Entry number (select by number for details)
+- Timestamp
+- Level (Information, Warning, Error, Critical)
+- Message preview
+
+Select any entry by number to view full details including:
+- Complete message
+- Event ID
+- Task Category
+- User and Computer information
+- Structured data (when available)
+
+**Option 2: Windows Event Viewer**
 
 1. Open Event Viewer (`eventvwr.msc`)
 2. Navigate to: **Windows Logs → Application**
 3. Filter by source: **"RFMediaLinkService"**
 
-Or use PowerShell:
+**Option 3: PowerShell**
 
 ```powershell
 # View recent logs
-Get-EventLog -LogName Application -Source "RFMediaLinkService" -Newest 50 | Format-Table TimeGenerated, Message -AutoSize
+Get-WinEvent -FilterHashtable @{LogName='Application'; ProviderName='RFMediaLinkService'} -MaxEvents 50
+
+# View errors and warnings only
+Get-WinEvent -FilterHashtable @{LogName='Application'; ProviderName='RFMediaLinkService'; Level=1,2,3} -MaxEvents 50
 ```
+
+### Toast Notifications
+
+The service displays Windows toast notifications for:
+- **Tag not found in catalog**: Unknown RFID tag scanned
+- **Emulator not found**: Configured emulator doesn't exist
+- **Launch failures**: Application failed to start
+
+Notifications appear in the Windows Action Center and disappear automatically. **Successful scans do not show notifications** to avoid clutter during normal operation.
 
 ### Update Service
 

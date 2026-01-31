@@ -5,6 +5,7 @@ using System.IO;
 using System.IO.Ports;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -136,6 +137,47 @@ public class RfidWorker : BackgroundService
         _logger = logger;
     }
 
+    private void ShowNotification(string title, string message, bool isError = false)
+    {
+        try
+        {
+            // Use PowerShell to show a Windows toast notification
+            var script = $@"
+[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+[Windows.UI.Notifications.ToastNotification, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
+
+$template = @""
+<toast>
+    <visual>
+        <binding template='ToastGeneric'>
+            <text>{title.Replace("\"", "'")}</text>
+            <text>{message.Replace("\"", "'")}</text>
+        </binding>
+    </visual>
+</toast>
+""@
+
+$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
+$xml.LoadXml($template)
+$toast = New-Object Windows.UI.Notifications.ToastNotification $xml
+[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('RF Media Link').Show($toast)
+";
+            var psi = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -WindowStyle Hidden -Command \"{script.Replace("\"", "\"\"\"")}\"",
+                CreateNoWindow = true,
+                UseShellExecute = false
+            };
+            Process.Start(psi)?.Dispose();
+        }
+        catch
+        {
+            // Silently fail if notifications don't work
+        }
+    }
+
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("RF Media Link Service starting...");
@@ -175,7 +217,7 @@ public class RfidWorker : BackgroundService
         if (Directory.Exists(programData))
         {
             _basePath = programData;
-            _logger.LogWarning($"DEBUG: Using ProgramData path: {_basePath}");
+            _logger.LogInformation($"Using ProgramData path: {_basePath}");
             return;
         }
 
@@ -282,7 +324,7 @@ public class RfidWorker : BackgroundService
         try
         {
             var emulatorsPath = Path.Combine(_basePath!, "emulators.json");
-            _logger.LogWarning($"Loading emulators from: {emulatorsPath}");
+            _logger.LogInformation($"Loading emulators from: {emulatorsPath}");
             if (!File.Exists(emulatorsPath))
             {
                 _logger.LogWarning($"Emulators file not found: {emulatorsPath}, creating empty emulators");
@@ -294,14 +336,14 @@ public class RfidWorker : BackgroundService
             }
             else
             {
-                _logger.LogWarning($"emulators.json exists, reading file...");
+                _logger.LogInformation($"emulators.json exists, reading file...");
                 var emulatorsJson = File.ReadAllText(emulatorsPath);
-                _logger.LogWarning($"File content length: {emulatorsJson.Length} characters");
+                _logger.LogInformation($"File content length: {emulatorsJson.Length} characters");
                 _emulators = JsonSerializer.Deserialize<Dictionary<string, Emulator>>(emulatorsJson, options) ?? new();
-                _logger.LogWarning($"Emulators loaded: {_emulators.Count} emulators");
+                _logger.LogInformation($"Emulators loaded: {_emulators.Count} emulators");
                 if (_emulators.Count > 0)
                 {
-                    _logger.LogWarning($"Emulator names: {string.Join(", ", _emulators.Keys)}");
+                    _logger.LogInformation($"Emulator names: {string.Join(", ", _emulators.Keys)}");
                 }
             }
         }
@@ -594,15 +636,8 @@ public class RfidWorker : BackgroundService
 
     private void ProcessRfidTag(string uid)
     {
-        _logger.LogWarning($"DEBUG: ProcessRfidTag called with UID: {uid}");
-
         // Catalog is now auto-reloaded by FileSystemWatcher when file changes
         // Just look up the UID in current _catalog
-        if (_logger.IsEnabled(LogLevel.Warning))
-        {
-            _logger.LogWarning($"DEBUG: Catalog has {_catalog?.Count ?? 0} entries");
-            _logger.LogWarning($"DEBUG: Looking for UID: '{uid}'");
-        }
 
         CatalogEntry? entry = null;
         bool foundInCatalog = _catalog != null && _catalog.TryGetValue(uid, out entry);
@@ -620,45 +655,42 @@ public class RfidWorker : BackgroundService
             var scanLastFile = Path.Combine(_basePath, "scan_last.log");
             var content = $"{uid}\n{DateTime.Now:yyyy-MM-dd HH:mm:ss}";
             File.WriteAllText(scanLastFile, content);
-            _logger.LogWarning($"DEBUG: Successfully wrote scan to {scanLastFile}");
             
             // Only write scan_null.log if not found in catalog
             if (!foundInCatalog)
             {
                 var scanNullFile = Path.Combine(_basePath, "scan_null.log");
                 File.WriteAllText(scanNullFile, content);
-                _logger.LogWarning($"DEBUG: Tag not in catalog, wrote to {scanNullFile}");
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, $"Failed to write scan file for {uid}");
         }
-
-        _logger.LogWarning($"DEBUG: foundInCatalog={foundInCatalog}, entry is null={entry == null}");
         
         if (!foundInCatalog || entry == null)
         {
             _logger.LogWarning($"Tag not found in catalog: {uid}");
+            ShowNotification("Unknown Tag", $"Tag {uid} is not configured", true);
             return;
         }
 
-        _logger.LogWarning($"Tag matched: {entry.Name} (Action: {entry.ActionType})");
-        _logger.LogWarning($"Action type: '{entry.ActionType}', Target: '{entry.ActionTarget}'");
+        _logger.LogInformation($"Tag matched: {entry.Name} (Action: {entry.ActionType})");
+        _logger.LogInformation($"Action type: '{entry.ActionType}', Target: '{entry.ActionTarget}'");
 
         try
         {
             var actionType = entry.ActionType?.ToLower();
-            _logger.LogWarning($"Processing action type: {actionType}");
+            _logger.LogInformation($"Processing action type: {actionType}");
             
             switch (actionType)
             {
                 case "emulator":
-                    _logger.LogWarning($"Calling LaunchEmulator with emulator='{entry.ActionTarget}'");
+                    _logger.LogInformation($"Calling LaunchEmulator with emulator='{entry.ActionTarget}'");
                     LaunchEmulator(entry.ActionTarget, entry.ActionArgs);
                     break;
                 case "file":
-                    _logger.LogWarning($"Calling LaunchFile with file='{entry.ActionTarget}'");
+                    _logger.LogInformation($"Calling LaunchFile with file='{entry.ActionTarget}'");
                     LaunchFile(entry.ActionTarget);
                     break;
                 case "url":
@@ -680,9 +712,9 @@ public class RfidWorker : BackgroundService
 
     private void LaunchEmulator(string? emulatorName, Dictionary<string, string>? args)
     {
-        _logger.LogWarning($"LaunchEmulator called with: {emulatorName}");
-        _logger.LogWarning($"_emulators is null: {_emulators == null}");
-        _logger.LogWarning($"_emulators count: {_emulators?.Count ?? 0}");
+        _logger.LogInformation($"LaunchEmulator called with: {emulatorName}");
+        _logger.LogInformation($"_emulators is null: {_emulators == null}");
+        _logger.LogInformation($"_emulators count: {_emulators?.Count ?? 0}");
         
         if (_emulators == null || _emulators.Count == 0)
         {
@@ -703,19 +735,20 @@ public class RfidWorker : BackgroundService
             {
                 _logger.LogError($"Available emulators: {string.Join(", ", _emulators.Keys)}");
             }
+            ShowNotification("Configuration Error", $"Emulator '{emulatorName}' not found", true);
             return;
         }
 
-        _logger.LogWarning($"Emulator found! Name: {emulator.Name}, Executable: {emulator.Executable}");
+        _logger.LogInformation($"Emulator found! Name: {emulator.Name}, Executable: {emulator.Executable}");
 
         TerminateOtherEmulators(emulatorName, emulator);
 
         var cmdlineArgs = BuildArguments(emulator, args);
-        _logger.LogWarning($"Launching {emulatorName} with args: {cmdlineArgs}");
+        _logger.LogInformation($"Launching {emulatorName} with args: {cmdlineArgs}");
 
         try
         {
-            _logger.LogWarning($"About to start process: {emulator.Executable}");
+            _logger.LogInformation($"About to start process: {emulator.Executable}");
             var psi = new ProcessStartInfo
             {
                 FileName = emulator.Executable!,
@@ -724,7 +757,7 @@ public class RfidWorker : BackgroundService
                 WindowStyle = ProcessWindowStyle.Normal
             };
             var process = Process.Start(psi);
-            _logger.LogWarning($"Process.Start() called successfully!");
+            _logger.LogInformation($"Process.Start() called successfully!");
             
             // Use ALT+TAB simulation to bring window to foreground
             // This is more reliable than SetForegroundWindow and works without admin rights
@@ -773,6 +806,7 @@ public class RfidWorker : BackgroundService
         catch (Exception ex)
         {
             _logger.LogError(ex, $"Error launching {emulatorName}");
+            ShowNotification("Launch Error", $"Failed to launch {emulatorName}", true);
         }
     }
 

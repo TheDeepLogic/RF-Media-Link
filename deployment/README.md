@@ -28,8 +28,8 @@ The installer will:
 - **`package-release.bat`** - Create installer package and ZIP for distribution
 
 ### Updates (Right-click "Run as administrator")
-- **`update-service.bat`** / **`update-service.ps1`** - Update service binaries (builds first)
-- **`update-configurator.bat`** / **`update-configurator.ps1`** - Update configurator binaries (builds first)
+- **`update-service.bat`** / **`update-service.ps1`** - Update service binaries without full reinstall (builds and restarts service)
+- **`update-configurator.bat`** / **`update-configurator.ps1`** - Update configurator binaries without full reinstall (builds and copies files)
 
 ### Service Management
 - **`start-service.ps1`** - Start the service
@@ -76,10 +76,25 @@ Located in `C:\ProgramData\RFMediaLink\`:
 
 ## Logs
 
-View logs in Windows Event Viewer:
+**Option 1: Use the built-in log viewer (recommended)**
+
+Run the configurator and select "4. View Logs" from the main menu. This provides:
+- Filtered views (Recent, Errors & Warnings, Today)
+- Numbered selection for detailed inspection
+- No need to navigate Event Viewer manually
+
+**Option 2: Windows Event Viewer**
+
 1. Open Event Viewer (eventvwr.msc)
 2. Navigate to: Windows Logs > Application
 3. Filter by source: "RFMediaLinkService"
+
+**Option 3: PowerShell**
+
+```powershell
+# View recent logs
+Get-WinEvent -FilterHashtable @{LogName='Application'; ProviderName='RFMediaLinkService'} -MaxEvents 50
+```
 
 ## Troubleshooting
 

@@ -2,6 +2,8 @@ using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Hosting.WindowsServices;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.EventLog;
 
 namespace RFMediaLinkService;
 
@@ -22,6 +24,16 @@ class Program
         // Normal service startup
         Host.CreateDefaultBuilder(args)
             .UseWindowsService()
+            .ConfigureLogging((context, logging) =>
+            {
+                logging.ClearProviders();
+                logging.AddEventLog(new EventLogSettings
+                {
+                    SourceName = "RFMediaLinkService",
+                    LogName = "Application"
+                });
+                logging.SetMinimumLevel(LogLevel.Information);
+            })
             .ConfigureServices(services =>
             {
                 services.AddHostedService<RfidWorker>();

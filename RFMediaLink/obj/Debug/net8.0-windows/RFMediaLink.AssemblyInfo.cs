@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("RFMediaLink")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7b20c4ff201fe963939c6f4baa683bb7e643aaba")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+188914a4712b04f58145387513ddf961a4e70112")]
 [assembly: System.Reflection.AssemblyProductAttribute("RFMediaLink")]
 [assembly: System.Reflection.AssemblyTitleAttribute("RFMediaLink")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

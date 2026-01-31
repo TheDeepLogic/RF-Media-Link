@@ -293,11 +293,12 @@ class RFMediaLinkConfigurator
             Console.WriteLine(C(Color.BrightGreen, "1.") + " Manage Tags");
             Console.WriteLine(C(Color.BrightGreen, "2.") + " Manage Emulators");
             Console.WriteLine(C(Color.BrightGreen, "3.") + " Service Control");
-            Console.WriteLine(C(Color.BrightGreen, "4.") + " Backup & Restore");
-            Console.WriteLine(C(Color.BrightGreen, "5.") + " Settings");
-            Console.WriteLine(C(Color.BrightRed, "6.") + " Exit");
+            Console.WriteLine(C(Color.BrightGreen, "4.") + " View Logs");
+            Console.WriteLine(C(Color.BrightGreen, "5.") + " Backup & Restore");
+            Console.WriteLine(C(Color.BrightGreen, "6.") + " Settings");
+            Console.WriteLine(C(Color.BrightRed, "7.") + " Exit");
             Console.WriteLine();
-            Console.Write(C(Color.BrightCyan, "Select option (1-6): "));
+            Console.Write(C(Color.BrightCyan, "Select option (1-7): "));
 
             string choice = Console.ReadLine();
             switch (choice)
@@ -312,12 +313,15 @@ class RFMediaLinkConfigurator
                     ServiceControl();
                     break;
                 case "4":
-                    BackupAndRestore();
+                    ViewLogs();
                     break;
                 case "5":
-                    Settings();
+                    BackupAndRestore();
                     break;
                 case "6":
+                    Settings();
+                    break;
+                case "7":
                     return;
             }
         }
@@ -1454,6 +1458,245 @@ class RFMediaLinkConfigurator
         StopService();
         System.Threading.Thread.Sleep(1000);
         StartService();
+    }
+
+    private static void ViewLogs()
+    {
+        while (true)
+        {
+            Console.Clear();
+            Console.WriteLine(C(Color.BrightCyan, "═══════════════════════════════════════════════════════"));
+            Console.WriteLine(C(Color.Bold + Color.BrightWhite, "  Service Logs"));
+            Console.WriteLine(C(Color.BrightCyan, "═══════════════════════════════════════════════════════"));
+            Console.WriteLine();
+            Console.WriteLine(C(Color.BrightGreen, "1.") + " View Recent Logs (Last 50)");
+            Console.WriteLine(C(Color.BrightGreen, "2.") + " View Errors & Warnings");
+            Console.WriteLine(C(Color.BrightGreen, "3.") + " View All Logs Today");
+            Console.WriteLine(C(Color.BrightGreen, "4.") + " Open Event Viewer");
+            Console.WriteLine(C(Color.BrightRed, "B.") + " Back to Main Menu");
+            Console.WriteLine();
+            Console.Write(C(Color.BrightCyan, "Select option: "));
+
+            string choice = Console.ReadLine()?.ToUpper() ?? "";
+            switch (choice)
+            {
+                case "1":
+                    ShowEventLogs("Information", 50);
+                    break;
+                case "2":
+                    ShowEventLogs("ErrorAndWarning", 50);
+                    break;
+                case "3":
+                    ShowEventLogs("Information", 500, DateTime.Today);
+                    break;
+                case "4":
+                    OpenEventViewer();
+                    return;
+                case "B":
+                    return;
+            }
+        }
+    }
+
+    private static void ShowEventLogs(string level, int maxEntries, DateTime? since = null)
+    {
+        Console.Clear();
+        Console.WriteLine(C(Color.BrightCyan, "═══════════════════════════════════════════════════════"));
+        Console.WriteLine(C(Color.Bold + Color.BrightWhite, $"  Service Logs - {level}"));
+        Console.WriteLine(C(Color.BrightCyan, "═══════════════════════════════════════════════════════"));
+        Console.WriteLine();
+
+        try
+        {
+            var sinceFilter = since.HasValue ? $" and TimeCreated >= '{since.Value:yyyy-MM-ddTHH:mm:ss}'" : "";
+            var query = $"*[System[Provider[@Name='RFMediaLinkService'] and (Level=1 or Level=2 or Level=3 or Level=4){sinceFilter}]]";
+            
+            if (level == "ErrorAndWarning")
+            {
+                query = $"*[System[Provider[@Name='RFMediaLinkService'] and (Level=1 or Level=2 or Level=3){sinceFilter}]]";
+            }
+
+            // Escape single quotes for PowerShell by doubling them
+            var escapedQuery = query.Replace("'", "''");
+
+            // Get events as JSON for structured parsing
+            var psi = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -Command \"Get-WinEvent -LogName Application -FilterXPath '{escapedQuery}' -MaxEvents {maxEntries} -ErrorAction SilentlyContinue | Select-Object -First {maxEntries} | ConvertTo-Json\"",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            var process = Process.Start(psi);
+            if (process != null)
+            {
+                var output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+
+                if (string.IsNullOrWhiteSpace(output) || output.Trim() == "null")
+                {
+                    Console.WriteLine(C(Color.BrightBlack, "No log entries found."));
+                    Console.WriteLine();
+                    Console.WriteLine(C(Color.BrightBlack, "Press any key to return..."));
+                    Console.ReadKey();
+                    return;
+                }
+
+                // Parse JSON and display numbered list
+                var logEntries = new List<Dictionary<string, object>>();
+                try
+                {
+                    var jsonDoc = JsonDocument.Parse(output);
+                    if (jsonDoc.RootElement.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var item in jsonDoc.RootElement.EnumerateArray())
+                        {
+                            var entry = new Dictionary<string, object>();
+                            foreach (var prop in item.EnumerateObject())
+                            {
+                                entry[prop.Name] = prop.Value.ToString();
+                            }
+                            logEntries.Add(entry);
+                        }
+                    }
+                    else if (jsonDoc.RootElement.ValueKind == JsonValueKind.Object)
+                    {
+                        var entry = new Dictionary<string, object>();
+                        foreach (var prop in jsonDoc.RootElement.EnumerateObject())
+                        {
+                            entry[prop.Name] = prop.Value.ToString();
+                        }
+                        logEntries.Add(entry);
+                    }
+                }
+                catch
+                {
+                    Console.WriteLine(C(Color.BrightRed, "Failed to parse log data."));
+                    Console.WriteLine();
+                    Console.WriteLine(C(Color.BrightBlack, "Press any key to return..."));
+                    Console.ReadKey();
+                    return;
+                }
+
+                // Display numbered list
+                for (int i = 0; i < logEntries.Count; i++)
+                {
+                    var entry = logEntries[i];
+                    var time = entry.ContainsKey("TimeCreated") ? entry["TimeCreated"].ToString() : "Unknown";
+                    var levelName = entry.ContainsKey("LevelDisplayName") ? entry["LevelDisplayName"].ToString() : "Info";
+                    var message = entry.ContainsKey("Message") ? entry["Message"].ToString() : "";
+                    
+                    // Truncate message for list view
+                    if (message.Length > 60)
+                        message = message.Substring(0, 60) + "...";
+
+                    var levelColor = levelName.Contains("Error") ? Color.BrightRed : 
+                                   levelName.Contains("Warning") ? Color.BrightYellow : 
+                                   Color.BrightGreen;
+
+                    Console.WriteLine(C(Color.BrightCyan, $"{i + 1,3}.") + 
+                                    C(Color.BrightBlack, $" [{time}]") + 
+                                    C(levelColor, $" {levelName,-10}") + 
+                                    $" {message}");
+                }
+
+                Console.WriteLine();
+                Console.Write(C(Color.BrightCyan, "Enter number to view details (or 0 to return): "));
+                var input = Console.ReadLine();
+
+                if (int.TryParse(input, out int selection) && selection > 0 && selection <= logEntries.Count)
+                {
+                    ShowLogDetails(logEntries[selection - 1]);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(C(Color.BrightRed, $"ERROR: {ex.Message}"));
+            Console.WriteLine();
+            Console.WriteLine(C(Color.BrightBlack, "Press any key to return..."));
+            Console.ReadKey();
+        }
+    }
+
+    private static void ShowLogDetails(Dictionary<string, object> entry)
+    {
+        Console.Clear();
+        Console.WriteLine(C(Color.BrightCyan, "═══════════════════════════════════════════════════════"));
+        Console.WriteLine(C(Color.Bold + Color.BrightWhite, "  Log Entry Details"));
+        Console.WriteLine(C(Color.BrightCyan, "═══════════════════════════════════════════════════════"));
+        Console.WriteLine();
+
+        foreach (var kvp in entry)
+        {
+            // Skip some technical fields
+            if (kvp.Key == "Keywords" || kvp.Key == "Bookmark" || kvp.Key == "RecordId" || 
+                kvp.Key == "ProviderId" || kvp.Key == "Qualifiers" || kvp.Key == "Version" ||
+                kvp.Key == "ProviderName" && kvp.Value.ToString() == "RFMediaLinkService")
+                continue;
+
+            var key = kvp.Key;
+            var value = kvp.Value.ToString();
+
+            // Color code certain fields
+            var keyColor = key == "LevelDisplayName" ? Color.BrightYellow :
+                          key == "TimeCreated" ? Color.BrightCyan :
+                          key == "Message" ? Color.BrightWhite :
+                          Color.BrightGreen;
+
+            Console.WriteLine(C(keyColor, $"{key}:"));
+            
+            // Word wrap long values
+            if (value.Length > 80)
+            {
+                var words = value.Split(' ');
+                var line = "  ";
+                foreach (var word in words)
+                {
+                    if (line.Length + word.Length + 1 > 80)
+                    {
+                        Console.WriteLine(line);
+                        line = "  " + word + " ";
+                    }
+                    else
+                    {
+                        line += word + " ";
+                    }
+                }
+                if (line.Trim().Length > 0)
+                    Console.WriteLine(line);
+            }
+            else
+            {
+                Console.WriteLine($"  {value}");
+            }
+            Console.WriteLine();
+        }
+
+        Console.WriteLine(C(Color.BrightBlack, "Press any key to return..."));
+        Console.ReadKey();
+    }
+
+    private static void OpenEventViewer()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "eventvwr.msc",
+                Arguments = "/c:Application",
+                UseShellExecute = true
+            });
+            Console.WriteLine("Opening Event Viewer...");
+            System.Threading.Thread.Sleep(1000);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ERROR: {ex.Message}");
+            System.Threading.Thread.Sleep(2000);
+        }
     }
 
     private static void ManageEmulators()
