@@ -32,7 +32,7 @@
 - **Service Control**: Start, stop, and restart service directly from configurator
 - **Emulator Management**: View and edit emulator definitions from configurator
 - **Auto-Reconnect**: Serial port automatically reconnects when RFID reader is unplugged/replugged
-- **Centralized Version Management**: Single VERSION file for consistent versioning
+- **Centralized Version Management**: Single VERSION file with semantic versioning (supports pre-release tags like `-dev`, `-alpha`, `-beta`)
 
 > **Reader Compatibility Note**
 > RF Media Link is built around a **custom serial RFID reader** for this project. See the parts list in [BOM.md](BOM.md) and the ESP32 serial firmware in [host_examples/esp32c3_rfid_reader_with_display.ino](host_examples/esp32c3_rfid_reader_with_display.ino). Most off‑the‑shelf HID/keyboard‑wedge readers will **not** work with the service.
