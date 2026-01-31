@@ -141,6 +141,19 @@ public class RfidWorker : BackgroundService
     {
         try
         {
+            // Don't show notification if configurator is already running
+            // User is likely adding/managing tags themselves
+            var configuratorProcesses = Process.GetProcessesByName("RFMediaLink");
+            if (configuratorProcesses.Length > 0)
+            {
+                foreach (var proc in configuratorProcesses)
+                {
+                    proc.Dispose();
+                }
+                _logger.LogInformation("Configurator is running - suppressing notification");
+                return;
+            }
+            
             // Escape for PowerShell
             var escapedTitle = title.Replace("'", "''").Replace("`", "``");
             var escapedMessage = message.Replace("'", "''").Replace("`", "``");

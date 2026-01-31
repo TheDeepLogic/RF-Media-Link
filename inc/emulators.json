@@ -183,6 +183,7 @@
         "type": "toggle",
         "label": "Fullscreen",
         "flag": "-fullscreen",
+        "default": true,
         "required": false
       }
     ]
@@ -199,14 +200,7 @@
         "name": "rom_file",
         "type": "file",
         "label": "ROM/Cartridge File",
-        "flag": "",
-        "required": false
-      },
-      {
-        "name": "fullscreen",
-        "type": "toggle",
-        "label": "Fullscreen",
-        "flag": "-fullscreen",
+        "flag": "-rom",
         "required": false
       }
     ]
@@ -220,17 +214,55 @@
     },
     "arguments": [
       {
+        "name": "model",
+        "type": "choice",
+        "label": "Model",
+        "flag": "-model",
+        "choices": [
+          "c64",
+          "c64c",
+          "c64old",
+          "ntsc",
+          "newntsc",
+          "oldntsc"
+        ],
+        "default": "c64",
+        "required": false
+      },
+      {
+        "name": "drive8",
+        "type": "file",
+        "label": "Drive 8 (Disk)",
+        "flag": "-8",
+        "required": false
+      },
+      {
+        "name": "drive9",
+        "type": "file",
+        "label": "Drive 9 (Disk)",
+        "flag": "-9",
+        "required": false
+      },
+      {
+        "name": "tape",
+        "type": "file",
+        "label": "Tape",
+        "flag": "-1",
+        "required": false
+      },
+      {
+        "name": "cartridge",
+        "type": "file",
+        "label": "Cartridge (CRT)",
+        "flag": "-cartcrt",
+        "required": false
+      },
+      {
         "name": "fullscreen",
         "type": "toggle",
         "label": "Fullscreen",
         "flag": "-fullscreen",
-        "required": false
-      },
-      {
-        "name": "rom_file",
-        "type": "file",
-        "label": "Disk/Cartridge File",
-        "flag": "",
+        "default": true,
         "required": false
       }
     ]
@@ -244,9 +276,148 @@
     },
     "arguments": [
       {
+        "name": "model",
+        "type": "choice",
+        "label": "Model",
+        "flag": "",
+        "choices": [
+          "-m1",
+          "-m3",
+          "-m4",
+          "-m4p"
+        ],
+        "default": "-m3",
+        "required": false
+      },
+      {
+        "name": "boot_os",
+        "type": "choice",
+        "label": "Boot OS",
+        "flag": "",
+        "choices": [
+          "-td",
+          "-ld",
+          "-d0 -"
+        ],
+        "default": "-td",
+        "required": false
+      },
+      {
+        "name": "disk0",
+        "type": "file",
+        "label": "Disk 0",
+        "flag": "-d0",
+        "required": false
+      },
+      {
+        "name": "disk1",
+        "type": "file",
+        "label": "Disk 1",
+        "flag": "-d1",
+        "required": false
+      },
+      {
+        "name": "disk2",
+        "type": "file",
+        "label": "Disk 2",
+        "flag": "-d2",
+        "required": false
+      },
+      {
+        "name": "disk3",
+        "type": "file",
+        "label": "Disk 3",
+        "flag": "-d3",
+        "required": false
+      },
+      {
+        "name": "hard_drive",
+        "type": "file",
+        "label": "Hard Drive",
+        "flag": "-h",
+        "required": false
+      },
+      {
+        "name": "fullscreen",
+        "type": "toggle",
+        "label": "Fullscreen",
+        "flag": "-vf",
+        "default": true,
+        "required": false
+      }
+    ]
+  },
+  "project64": {
+    "name": "Nintendo 64",
+    "executable": "F:\\Emulation\\project64\\Project64.exe",
+    "close_on_launch": {
+      "close_other_instances": true,
+      "close_other_emulators": true
+    },
+    "arguments": [
+      {
         "name": "rom_file",
         "type": "file",
-        "label": "ROM/Cassette File",
+        "label": "ROM File",
+        "flag": "",
+        "required": false
+      }
+    ]
+  },
+  "virtualjaguar": {
+    "name": "Atari Jaguar",
+    "executable": "F:\\Emulation\\virtualjaguar\\virtualjaguar.exe",
+    "close_on_launch": {
+      "close_other_instances": true,
+      "close_other_emulators": true
+    },
+    "arguments": [
+      {
+        "name": "rom_file",
+        "type": "file",
+        "label": "ROM File",
+        "flag": "",
+        "required": false
+      }
+    ]
+  },
+  "dolphin": {
+    "name": "GameCube",
+    "executable": "F:\\Emulation\\dolphin\\Dolphin.exe",
+    "close_on_launch": {
+      "close_other_instances": true,
+      "close_other_emulators": true
+    },
+    "arguments": [
+      {
+        "name": "rom_file",
+        "type": "file",
+        "label": "Game Image",
+        "flag": "-e",
+        "required": false
+      },
+      {
+        "name": "fullscreen",
+        "type": "toggle",
+        "label": "Fullscreen",
+        "flag": "-b",
+        "default": true,
+        "required": false
+      }
+    ]
+  },
+  "fusion": {
+    "name": "Genesis/Master System/SG-1000",
+    "executable": "F:\\Emulation\\fusion\\Fusion.exe",
+    "close_on_launch": {
+      "close_other_instances": true,
+      "close_other_emulators": true
+    },
+    "arguments": [
+      {
+        "name": "rom_file",
+        "type": "file",
+        "label": "ROM File",
         "flag": "",
         "required": false
       },
@@ -255,6 +426,57 @@
         "type": "toggle",
         "label": "Fullscreen",
         "flag": "-fullscreen",
+        "default": true,
+        "required": false
+      }
+    ]
+  },
+  "mgba": {
+    "name": "Game Boy/Game Boy Color/Game Boy Advance",
+    "executable": "F:\\Emulation\\mgba\\mGBA.exe",
+    "close_on_launch": {
+      "close_other_instances": true,
+      "close_other_emulators": true
+    },
+    "arguments": [
+      {
+        "name": "rom_file",
+        "type": "file",
+        "label": "ROM File",
+        "flag": "",
+        "required": false
+      },
+      {
+        "name": "fullscreen",
+        "type": "toggle",
+        "label": "Fullscreen",
+        "flag": "-f",
+        "default": true,
+        "required": false
+      }
+    ]
+  },
+  "mednafen": {
+    "name": "Game Gear/Lynx/Virtual Boy/PlayStation",
+    "executable": "F:\\Emulation\\mednafen\\mednafen.exe",
+    "close_on_launch": {
+      "close_other_instances": true,
+      "close_other_emulators": true
+    },
+    "arguments": [
+      {
+        "name": "rom_file",
+        "type": "file",
+        "label": "ROM/Disc File",
+        "flag": "",
+        "required": false
+      },
+      {
+        "name": "fullscreen",
+        "type": "toggle",
+        "label": "Fullscreen",
+        "flag": "-fs 1",
+        "default": true,
         "required": false
       }
     ]
