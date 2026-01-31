@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -12,6 +13,7 @@ class RFMediaLinkConfigurator
     private static string ConfigFile;
     private static string CatalogFile;
     private static string EmulatorsFile;
+    private static string Version = "1.0.0";
     
     private static JsonDocument? ConfigDoc;
     private static JsonDocument? CatalogDoc;
@@ -43,10 +45,24 @@ class RFMediaLinkConfigurator
     [STAThread]
     static void Main(string[] args)
     {
+        LoadVersion();
         FindConfigDir();
         LoadAllData();
         SetupCatalogWatcher();
         MainMenu();
+    }
+
+    private static void LoadVersion()
+    {
+        try
+        {
+            var versionFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "VERSION");
+            if (File.Exists(versionFile))
+            {
+                Version = File.ReadAllText(versionFile).Trim();
+            }
+        }
+        catch { }
     }
 
     private static void SetupCatalogWatcher()
@@ -200,16 +216,17 @@ class RFMediaLinkConfigurator
         {
             Console.Clear();
             Console.WriteLine("═══════════════════════════════════════════════════════");
-            Console.WriteLine("  RF Media Link Configuration Tool");
+            Console.WriteLine($"  RF Media Link Configuration Tool v{Version}");
             Console.WriteLine("═══════════════════════════════════════════════════════");
             Console.WriteLine($"Config Location: {ConfigDir}");
             Console.WriteLine();
             Console.WriteLine("1. Manage Tags");
-            Console.WriteLine("2. View Emulators");
-            Console.WriteLine("3. Settings");
-            Console.WriteLine("4. Exit");
+            Console.WriteLine("2. Manage Emulators");
+            Console.WriteLine("3. Service Control");
+            Console.WriteLine("4. Settings");
+            Console.WriteLine("5. Exit");
             Console.WriteLine();
-            Console.Write("Select option (1-4): ");
+            Console.Write("Select option (1-5): ");
 
             string choice = Console.ReadLine();
             switch (choice)
@@ -218,12 +235,15 @@ class RFMediaLinkConfigurator
                     ManageTags();
                     break;
                 case "2":
-                    ViewEmulators();
+                    ManageEmulators();
                     break;
                 case "3":
-                    Settings();
+                    ServiceControl();
                     break;
                 case "4":
+                    Settings();
+                    break;
+                case "5":
                     return;
             }
         }
@@ -1206,5 +1226,222 @@ class RFMediaLinkConfigurator
 
         Console.WriteLine("Press any key...");
         Console.ReadKey();
+    }
+
+    private static void ServiceControl()
+    {
+        while (true)
+        {
+            Console.Clear();
+            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine("  Service Control");
+            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine();
+
+            // Check if service is running
+            var process = Process.GetProcessesByName("RFMediaLinkService").FirstOrDefault();
+            if (process != null)
+            {
+                Console.WriteLine($"Service Status: RUNNING (PID: {process.Id})");
+            }
+            else
+            {
+                Console.WriteLine("Service Status: STOPPED");
+            }
+            Console.WriteLine();
+
+            Console.WriteLine("1. Start Service");
+            Console.WriteLine("2. Stop Service");
+            Console.WriteLine("3. Restart Service");
+            Console.WriteLine("4. Back to Main Menu");
+            Console.WriteLine();
+            Console.Write("Select option (1-4): ");
+
+            string choice = Console.ReadLine();
+            switch (choice)
+            {
+                case "1":
+                    StartService();
+                    break;
+                case "2":
+                    StopService();
+                    break;
+                case "3":
+                    RestartService();
+                    break;
+                case "4":
+                    return;
+            }
+        }
+    }
+
+    private static void StartService()
+    {
+        Console.WriteLine();
+        Console.WriteLine("Starting service...");
+        
+        var running = Process.GetProcessesByName("RFMediaLinkService").FirstOrDefault();
+        if (running != null)
+        {
+            Console.WriteLine($"Service is already running (PID: {running.Id})");
+            System.Threading.Thread.Sleep(2000);
+            return;
+        }
+
+        var installDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "RFMediaLink");
+        var exePath = Path.Combine(installDir, "RFMediaLinkService.exe");
+
+        if (!File.Exists(exePath))
+        {
+            Console.WriteLine($"ERROR: Service executable not found at {exePath}");
+            System.Threading.Thread.Sleep(3000);
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = exePath,
+                WorkingDirectory = installDir,
+                UseShellExecute = true,
+                WindowStyle = ProcessWindowStyle.Minimized
+            });
+
+            System.Threading.Thread.Sleep(2000);
+            running = Process.GetProcessesByName("RFMediaLinkService").FirstOrDefault();
+            if (running != null)
+            {
+                Console.WriteLine($"Service started successfully (PID: {running.Id})");
+            }
+            else
+            {
+                Console.WriteLine("Service may not have started properly.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ERROR: {ex.Message}");
+        }
+
+        System.Threading.Thread.Sleep(2000);
+    }
+
+    private static void StopService()
+    {
+        Console.WriteLine();
+        Console.WriteLine("Stopping service...");
+
+        var processes = Process.GetProcessesByName("RFMediaLinkService");
+        if (processes.Length == 0)
+        {
+            Console.WriteLine("Service is not running.");
+            System.Threading.Thread.Sleep(2000);
+            return;
+        }
+
+        try
+        {
+            foreach (var proc in processes)
+            {
+                proc.Kill();
+                proc.WaitForExit(5000);
+            }
+            Console.WriteLine("Service stopped successfully.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ERROR: {ex.Message}");
+        }
+
+        System.Threading.Thread.Sleep(2000);
+    }
+
+    private static void RestartService()
+    {
+        Console.WriteLine();
+        Console.WriteLine("Restarting service...");
+        StopService();
+        System.Threading.Thread.Sleep(1000);
+        StartService();
+    }
+
+    private static void ManageEmulators()
+    {
+        while (true)
+        {
+            LoadAllData(); // Reload to get latest
+            
+            Console.Clear();
+            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine("  Manage Emulators");
+            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine();
+
+            if (Emulators.ValueKind == JsonValueKind.Object)
+            {
+                var emulatorList = new List<(string id, string name)>();
+                foreach (var emu in Emulators.EnumerateObject())
+                {
+                    var name = emu.Value.TryGetProperty("name", out var n) ? n.GetString() : "Unknown";
+                    emulatorList.Add((emu.Name, name ?? "Unknown"));
+                }
+
+                Console.WriteLine("Configured Emulators:");
+                foreach (var (id, name) in emulatorList)
+                {
+                    Console.WriteLine($"  {id} - {name}");
+                }
+                Console.WriteLine();
+            }
+            else
+            {
+                Console.WriteLine("No emulators configured.");
+                Console.WriteLine();
+            }
+
+            Console.WriteLine("1. View Emulator Details");
+            Console.WriteLine("2. Edit emulators.json in Notepad");
+            Console.WriteLine("3. Back to Main Menu");
+            Console.WriteLine();
+            Console.Write("Select option (1-3): ");
+
+            string choice = Console.ReadLine();
+            switch (choice)
+            {
+                case "1":
+                    ViewEmulators();
+                    break;
+                case "2":
+                    EditEmulatorsFile();
+                    break;
+                case "3":
+                    return;
+            }
+        }
+    }
+
+    private static void EditEmulatorsFile()
+    {
+        Console.WriteLine();
+        Console.WriteLine("Opening emulators.json in Notepad...");
+        
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "notepad.exe",
+                Arguments = $"\"{EmulatorsFile}\"",
+                UseShellExecute = true
+            });
+            Console.WriteLine("File opened. Press any key when done editing...");
+            Console.ReadKey();
+            LoadAllData(); // Reload after editing
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ERROR: {ex.Message}");
+            System.Threading.Thread.Sleep(3000);
+        }
     }
 }

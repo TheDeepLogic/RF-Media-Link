@@ -18,9 +18,14 @@ $rootDir = Split-Path -Parent $deploymentDir
 $releaseDir = Join-Path $deploymentDir "release"
 $packageDir = Join-Path $releaseDir "RFMediaLink-Installer-x64"
 
-# Get version from service assembly (you can update this manually for each release)
-# UPDATE THIS FOR EACH RELEASE: Increment version number here
-$version = "1.0.1"
+# Get version from VERSION file
+$versionFile = Join-Path $rootDir "VERSION"
+if (Test-Path $versionFile) {
+    $version = (Get-Content $versionFile -Raw).Trim()
+} else {
+    Write-Error "VERSION file not found at: $versionFile"
+    exit 1
+}
 
 Write-Host "Packaging version: $version" -ForegroundColor Yellow
 Write-Host ""
@@ -62,6 +67,12 @@ if (-not (Test-Path $configuratorSrc)) {
     exit 1
 }
 Copy-Item -Path "$configuratorSrc\RFMediaLink.*" -Destination $configuratorPublishDir -Force
+
+# Copy VERSION file to configurator directory
+$versionFileSrc = Join-Path $rootDir "VERSION"
+if (Test-Path $versionFileSrc) {
+    Copy-Item -Path $versionFileSrc -Destination $configuratorPublishDir -Force
+}
 
 # Copy deployment scripts
 Write-Host "Copying installation scripts..." -ForegroundColor Green

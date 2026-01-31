@@ -13,4 +13,8 @@
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\VERSION" CopyToOutputDirectory="PreserveNewest" Link="VERSION" />
+  </ItemGroup>
+
 </Project>
