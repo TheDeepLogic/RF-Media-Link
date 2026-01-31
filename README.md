@@ -621,9 +621,9 @@ RF Media Link/
 │   ├── Program.cs            # Console UI
 │   └── RFMediaLink.csproj
 ├── deployment/               # Installation scripts & binaries
-│   ├── install-retrof.ps1
+│   ├── install-rfmedialink.ps1
 │   ├── update-service.ps1
-│   ├── uninstall-retrof.bat
+│   ├── uninstall.bat
 │   └── configure.bat
 ├── host_examples/            # Example RFID reader firmware
 │   ├── esp32c3_rfid_reader_serial_only.ino
