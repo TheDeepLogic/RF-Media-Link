@@ -215,10 +215,18 @@ RF Media Link comes with configuration templates for popular emulators:
 
 - **AppleWin**: Apple II emulator
 - **Stella**: Atari 2600 emulator
+- **FCEUX**: Nintendo (NES) emulator
 - **SNES9x**: Super Nintendo emulator
+- **Project64**: Nintendo 64 emulator
 - **Classic99**: TI-99/4A emulator
 - **VICE**: Commodore 64 emulator
 - **TRS-80 GP**: TRS-80 emulator
+- **Fusion**: Sega Genesis/Master System/SG-1000 emulator
+- **mGBA**: Game Boy/Game Boy Color/Game Boy Advance emulator
+- **Dolphin**: Nintendo GameCube emulator
+- **Virtual Jaguar**: Atari Jaguar emulator
+- **Mednafen**: Multi-system emulator (Game Gear, Atari Lynx, Virtual Boy, PlayStation)
+- **RetroArch**: Multi-system emulator frontend
 
 > **Note:** Emulator software is **not included**. You must download and install the emulators separately. The included `emulators.json` file provides pre-configured definitions with common command-line arguments for each emulator. Edit paths and arguments as needed for your installation.
 
@@ -684,6 +692,6 @@ This project is provided as-is for hobbyist and personal use.
 
 - **Author**: Aaron Smith
 - **AI Assistant**: Claude Sonnet 4.5 via GitHub Copilot
-- **Emulator Developers**: AppleWin, Stella, SNES9x, Classic99, VICE, TRS-80 GP teams
+- **Emulator Developers**: AppleWin, Stella, FCEUX, SNES9x, Project64, Classic99, VICE, TRS-80 GP, Fusion, mGBA, Dolphin, Virtual Jaguar, Mednafen, and RetroArch teams
 
 For questions, issues, or contributions, please open an issue on GitHub.
