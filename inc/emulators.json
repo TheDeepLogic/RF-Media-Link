@@ -123,7 +123,7 @@
   },
   "stella": {
     "name": "Atari 2600",
-    "executable": "F:\\Emulation\\stella\\Atari 2600.exe",
+    "executable": "F:\\Emulation\\stella\\stella.exe",
     "close_on_launch": {
       "close_other_instances": true,
       "close_other_emulators": true
@@ -165,7 +165,7 @@
   },
   "snes9x": {
     "name": "Super Nintendo",
-    "executable": "F:\\Emulation\\snes9x\\Super Nintendo.exe",
+    "executable": "F:\\Emulation\\snes9x\\snes9x.exe",
     "close_on_launch": {
       "close_other_instances": true,
       "close_other_emulators": true
