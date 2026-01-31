@@ -18,13 +18,25 @@ The installer will:
 
 ## Management Scripts
 
+### Installation
 - **`install.bat`** - Install RF Media Link
 - **`uninstall.bat`** - Completely remove RF Media Link
 - **`clean-install.bat`** - Uninstall then reinstall (useful for updates)
-- **`update-service.ps1`** - Update binaries from build folders without full reinstall
+
+### Building & Packaging
+- **`build-release.bat`** - Build both service and configurator for release
+- **`package-release.bat`** - Create installer package and ZIP for distribution
+
+### Updates (Right-click "Run as administrator")
+- **`update-service.bat`** / **`update-service.ps1`** - Update service binaries (builds first)
+- **`update-configurator.bat`** / **`update-configurator.ps1`** - Update configurator binaries (builds first)
+
+### Service Management
 - **`start-service.ps1`** - Start the service
 - **`stop-service.ps1`** - Stop the service
 - **`restart-service.ps1`** - Restart the service
+
+### Configuration
 - **`configure.bat`** - Launch the configurator tool
 - **`open-catalog.bat`** - Open catalog.json in default text editor
 - **`open-emulators.bat`** - Open emulators.json in default text editor

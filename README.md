@@ -1,22 +1,38 @@
 # RF Media Link - RFID Media Launcher
 
+**Version:** 0.9.0-dev (Pre-release)
+
 **RF Media Link** is a Windows background application that launches media applications, files, and commands via RFID tags. Scan a tag to instantly launch your media player with the correct content, application with specific parameters, or execute custom commands. Perfect for media libraries and content management workflows.
 
-> **AI-Assisted Development Notice**  
-> This project was developed with GitHub Copilot assistance (Claude Sonnet 4.5). The codebase and documentation were AI-generated based on specifications and iterative refinement. While functional and tested, please review code before production use and submit pull requests for any corrections.
+> **AI-Assisted Development Notice**
+> 
+> Hello, fellow human! My name is Aaron Smith. I've been in the IT field for nearly three decades and have extensive experience as both an engineer and architect. While I've had various projects in the past that have made their way into the public domain, I've always wanted to release more than I could. I write useful utilities all the time that aid me with my vintage computing and hobbyist electronic projects, but rarely publish them. I've had experience in both the public and private sectors and can unfortunately slip into treating each one of these as a fully polished cannonball ready for market. It leads to scope creep and never-ending updates to documentation.
+> 
+> With that in-mind, I've leveraged GitHub Copilot to create or enhance the code within this repository and, outside of this notice, all related documentation. While I'd love to tell you that I pore over it all and make revisions, that just isn't the case. To prevent my behavior from keeping these tools from seeing the light of day, I've decided to do as little of that as possible! My workflow involves simply stating the need to GitHub Copilot, providing reference material where helpful, running the resulting code, and, if there is an actionable output, validating that it's correct. If I find a change I'd like to make, I describe it to Copilot. I've been leveraging the Agent CLI and it takes care of the core debugging.
+>
+> With all that being said, please keep in-mind that what you read and execute was created by Claude Sonnet 4.5. There may be mistakes. If you find an error, please feel free to submit a pull request with a correction!
 
 ---
 
 ## Features
 
+### Core Functionality
 - **Background Service via Scheduled Task**: Runs at login with elevated privileges for proper window focus
-- **Console Configuration Tool**: Easy tag and application management with browse dialogs
+- **ANSI Color Console Interface**: Modern, colorful configurator with automatic fallback for legacy terminals
 - **Multiple Application Support**: Media players, emulators, file explorers, browsers, custom apps
 - **Flexible Actions**: Launch applications, open files, navigate URLs, run commands
 - **Customizable Arguments**: File paths, choices, toggles, and flags per application
 - **Hot Reload**: Configuration changes detected automatically (no service restart needed)
 - **JSON Configuration**: Easy backup, version control, and manual editing
 - **Foreground Activation**: Launched applications automatically receive focus using ALT key simulation
+
+### Enhanced Management (v0.9.0-dev)
+- **Numbered Tag Selection**: Select tags by number instead of typing full UIDs
+- **Backup & Restore System**: Automatic and manual backups to Documents\RFMediaLink\Backups with smart change detection
+- **Service Control**: Start, stop, and restart service directly from configurator
+- **Emulator Management**: View and edit emulator definitions from configurator
+- **Auto-Reconnect**: Serial port automatically reconnects when RFID reader is unplugged/replugged
+- **Centralized Version Management**: Single VERSION file for consistent versioning
 
 > **Reader Compatibility Note**
 > RF Media Link is built around a **custom serial RFID reader** for this project. See the parts list in [BOM.md](BOM.md) and the ESP32 serial firmware in [host_examples/esp32c3_rfid_reader_with_display.ino](host_examples/esp32c3_rfid_reader_with_display.ino). Most off‑the‑shelf HID/keyboard‑wedge readers will **not** work with the service.
