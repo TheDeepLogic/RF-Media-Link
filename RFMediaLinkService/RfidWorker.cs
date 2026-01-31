@@ -185,11 +185,11 @@ $form.Dispose()
                 RedirectStandardError = true,
                 RedirectStandardOutput = true
             };
-            var proc = Process.Start(psi);
-            if (proc != null)
+            var notificationProc = Process.Start(psi);
+            if (notificationProc != null)
             {
-                proc.WaitForExit(5000); // Wait up to 5 seconds for user response
-                proc.Dispose();
+                notificationProc.WaitForExit(5000); // Wait up to 5 seconds for user response
+                notificationProc.Dispose();
             }
         }
         catch
