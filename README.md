@@ -206,9 +206,9 @@ When adding tags, use shortcuts to speed up configuration:
 
 ---
 
-## Included Emulators
+## Included Emulator Configurations
 
-RF Media Link comes preconfigured with:
+RF Media Link comes with configuration templates for popular emulators:
 
 - **AppleWin**: Apple II emulator
 - **Stella**: Atari 2600 emulator
@@ -216,6 +216,8 @@ RF Media Link comes preconfigured with:
 - **Classic99**: TI-99/4A emulator
 - **VICE**: Commodore 64 emulator
 - **TRS-80 GP**: TRS-80 emulator
+
+> **Note:** Emulator software is **not included**. You must download and install the emulators separately. The included `emulators.json` file provides pre-configured definitions with common command-line arguments for each emulator. Edit paths and arguments as needed for your installation.
 
 To add more emulators, edit `emulators.json` manually with the same structure.
 
