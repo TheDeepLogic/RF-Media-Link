@@ -148,7 +148,7 @@
   },
   "fceux": {
     "name": "Nintendo",
-    "executable": "F:\\Emulation\\NES\\fceux\\fceux.exe",
+    "executable": "F:\\Emulation\\fceux\\fceux.exe",
     "close_on_launch": {
       "close_other_instances": true,
       "close_other_emulators": true
