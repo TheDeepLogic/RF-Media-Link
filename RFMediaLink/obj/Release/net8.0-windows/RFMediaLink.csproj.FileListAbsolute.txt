@@ -43,3 +43,4 @@ D:\OneDrive\Software\Vintage\_GitHub\RF-Media-Link\RFMediaLink\obj\Release\net8.
 D:\OneDrive\Software\Vintage\_GitHub\RF-Media-Link\RFMediaLink\obj\Release\net8.0-windows\RFMediaLink.pdb
 D:\OneDrive\Software\Vintage\_GitHub\RF-Media-Link\RFMediaLink\obj\Release\net8.0-windows\RFMediaLink.genruntimeconfig.cache
 D:\OneDrive\Software\Vintage\_GitHub\RF-Media-Link\RFMediaLink\obj\Release\net8.0-windows\ref\RFMediaLink.dll
+D:\OneDrive\Software\Vintage\_GitHub\RF-Media-Link\RFMediaLink\bin\Release\net8.0-windows\VERSION

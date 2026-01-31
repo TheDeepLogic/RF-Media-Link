@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Linq;
@@ -9,10 +10,49 @@ using System.Threading.Tasks;
 
 class RFMediaLinkConfigurator
 {
+    // P/Invoke for ANSI color support
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr GetStdHandle(int nStdHandle);
+
+    [DllImport("kernel32.dll")]
+    private static extern bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode);
+
+    [DllImport("kernel32.dll")]
+    private static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
+
+    private const int STD_OUTPUT_HANDLE = -11;
+    private const uint ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004;
+
+    private static bool AnsiSupported = false;
+
+    // ANSI color codes
+    private static class Color
+    {
+        public const string Reset = "\x1b[0m";
+        public const string Bold = "\x1b[1m";
+        public const string Black = "\x1b[30m";
+        public const string Red = "\x1b[31m";
+        public const string Green = "\x1b[32m";
+        public const string Yellow = "\x1b[33m";
+        public const string Blue = "\x1b[34m";
+        public const string Magenta = "\x1b[35m";
+        public const string Cyan = "\x1b[36m";
+        public const string White = "\x1b[37m";
+        public const string BrightBlack = "\x1b[90m";
+        public const string BrightRed = "\x1b[91m";
+        public const string BrightGreen = "\x1b[92m";
+        public const string BrightYellow = "\x1b[93m";
+        public const string BrightBlue = "\x1b[94m";
+        public const string BrightMagenta = "\x1b[95m";
+        public const string BrightCyan = "\x1b[96m";
+        public const string BrightWhite = "\x1b[97m";
+    }
+
     private static string ConfigDir;
     private static string ConfigFile;
     private static string CatalogFile;
     private static string EmulatorsFile;
+    private static string BackupDir;
     private static string Version = "1.0.0";
     
     private static JsonDocument? ConfigDoc;
@@ -45,11 +85,41 @@ class RFMediaLinkConfigurator
     [STAThread]
     static void Main(string[] args)
     {
+        EnableAnsiSupport();
         LoadVersion();
         FindConfigDir();
+        InitializeBackupDir();
+        CheckForAutoRestore();
         LoadAllData();
         SetupCatalogWatcher();
         MainMenu();
+    }
+
+    private static void EnableAnsiSupport()
+    {
+        try
+        {
+            var handle = GetStdHandle(STD_OUTPUT_HANDLE);
+            if (GetConsoleMode(handle, out uint mode))
+            {
+                mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+                if (SetConsoleMode(handle, mode))
+                {
+                    AnsiSupported = true;
+                    // Set black background
+                    Console.Write("\x1b[40m\x1b[2J\x1b[H");
+                }
+            }
+        }
+        catch
+        {
+            AnsiSupported = false;
+        }
+    }
+
+    private static string C(string color, string text)
+    {
+        return AnsiSupported ? $"{color}{text}{Color.Reset}" : text;
     }
 
     private static void LoadVersion()
@@ -215,18 +285,19 @@ class RFMediaLinkConfigurator
         while (true)
         {
             Console.Clear();
-            Console.WriteLine("═══════════════════════════════════════════════════════");
-            Console.WriteLine($"  RF Media Link Configuration Tool v{Version}");
-            Console.WriteLine("═══════════════════════════════════════════════════════");
-            Console.WriteLine($"Config Location: {ConfigDir}");
+            Console.WriteLine(C(Color.BrightCyan, "═══════════════════════════════════════════════════════"));
+            Console.WriteLine(C(Color.Bold + Color.BrightWhite, $"  RF Media Link Configuration Tool") + C(Color.BrightYellow, $" v{Version}"));
+            Console.WriteLine(C(Color.BrightCyan, "═══════════════════════════════════════════════════════"));
+            Console.WriteLine(C(Color.BrightBlack, $"Config Location: {ConfigDir}"));
             Console.WriteLine();
-            Console.WriteLine("1. Manage Tags");
-            Console.WriteLine("2. Manage Emulators");
-            Console.WriteLine("3. Service Control");
-            Console.WriteLine("4. Settings");
-            Console.WriteLine("5. Exit");
+            Console.WriteLine(C(Color.BrightGreen, "1.") + " Manage Tags");
+            Console.WriteLine(C(Color.BrightGreen, "2.") + " Manage Emulators");
+            Console.WriteLine(C(Color.BrightGreen, "3.") + " Service Control");
+            Console.WriteLine(C(Color.BrightGreen, "4.") + " Backup & Restore");
+            Console.WriteLine(C(Color.BrightGreen, "5.") + " Settings");
+            Console.WriteLine(C(Color.BrightRed, "6.") + " Exit");
             Console.WriteLine();
-            Console.Write("Select option (1-5): ");
+            Console.Write(C(Color.BrightCyan, "Select option (1-6): "));
 
             string choice = Console.ReadLine();
             switch (choice)
@@ -241,9 +312,12 @@ class RFMediaLinkConfigurator
                     ServiceControl();
                     break;
                 case "4":
-                    Settings();
+                    BackupAndRestore();
                     break;
                 case "5":
+                    Settings();
+                    break;
+                case "6":
                     return;
             }
         }
@@ -260,21 +334,21 @@ class RFMediaLinkConfigurator
         Console.WriteLine();
 
         // Show current tags
+        var tagList = new List<(string id, string name)>();
         if (Catalog.ValueKind == JsonValueKind.Object)
         {
-            var tagList = new List<(string id, string name)>();
             foreach (var tag in Catalog.EnumerateObject())
             {
                 var tagName = tag.Value.TryGetProperty("name", out var tn) ? tn.GetString() : "Unknown";
-                tagList.Add((tag.Name, tagName));
+                tagList.Add((tag.Name, tagName ?? "Unknown"));
             }
 
             if (tagList.Count > 0)
             {
-                Console.WriteLine("Current tags:");
-                foreach (var (id, name) in tagList)
+                Console.WriteLine("Select tag to edit:");
+                for (int i = 0; i < tagList.Count; i++)
                 {
-                    Console.WriteLine($"  {id} - {name}");
+                    Console.WriteLine($"  {i + 1}. [{tagList[i].id}] {tagList[i].name}");
                 }
                 Console.WriteLine();
             }
@@ -287,17 +361,19 @@ class RFMediaLinkConfigurator
             }
         }
 
-        Console.Write("Enter Tag UID to edit: ");
-        string uid = (Console.ReadLine() ?? "").Trim();
+        Console.Write("Enter number (or 0 to cancel): ");
+        string input = (Console.ReadLine() ?? "").Trim();
 
-        if (string.IsNullOrEmpty(uid))
+        if (!int.TryParse(input, out int choice) || choice < 1 || choice > tagList.Count)
         {
-            Console.WriteLine("Cancelled.");
+            if (choice != 0)
+                Console.WriteLine("Invalid selection.");
             System.Threading.Thread.Sleep(1000);
             return;
         }
 
-        // Check if tag exists (case-insensitive)
+        // Get the selected tag UID
+        string uid = tagList[choice - 1].id;
         var foundUid = FindTagUid(uid);
         if (foundUid == null)
         {
@@ -375,8 +451,8 @@ class RFMediaLinkConfigurator
                 }
                 Console.Write($"Select (number, or Enter to keep current): ");
                 
-                string choice = Console.ReadLine() ?? "";
-                if (!string.IsNullOrWhiteSpace(choice) && int.TryParse(choice, out int idx) && idx > 0 && idx <= emuList.Count)
+                string emuChoice = Console.ReadLine() ?? "";
+                if (!string.IsNullOrWhiteSpace(emuChoice) && int.TryParse(emuChoice, out int idx) && idx > 0 && idx <= emuList.Count)
                 {
                     string selectedEmuId = emuList[idx - 1].id;
                     var emuElement = Emulators.GetProperty(selectedEmuId);
@@ -457,28 +533,28 @@ class RFMediaLinkConfigurator
                         else if (type == "file")
                         {
                             Console.Write("  [B] Browse, or Enter new path (or Enter to keep current): ");
-                            string input = Console.ReadLine() ?? "";
+                            string fileInput = Console.ReadLine() ?? "";
                             
-                            if (input.Trim().ToUpper() == "B")
+                            if (fileInput.Trim().ToUpper() == "B")
                             {
                                 value = BrowseForFile();
                                 if (string.IsNullOrEmpty(value))
                                     value = existingVal;
                             }
-                            else if (string.IsNullOrWhiteSpace(input))
+                            else if (string.IsNullOrWhiteSpace(fileInput))
                             {
                                 value = existingVal;
                             }
                             else
                             {
-                                value = input;
+                                value = fileInput;
                             }
                         }
                         else
                         {
                             Console.Write("  New value (or Enter to keep current): ");
-                            string input = Console.ReadLine() ?? "";
-                            value = string.IsNullOrWhiteSpace(input) ? existingVal : input;
+                            string valueInput = Console.ReadLine() ?? "";
+                            value = string.IsNullOrWhiteSpace(valueInput) ? existingVal : valueInput;
                         }
 
                         argValues[argName] = value;
@@ -545,9 +621,9 @@ class RFMediaLinkConfigurator
         while (true)
         {
             Console.Clear();
-            Console.WriteLine("═══════════════════════════════════════════════════════");
-            Console.WriteLine("  Manage RFID Tags");
-            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine(C(Color.BrightCyan, "═══════════════════════════════════════════════════════"));
+            Console.WriteLine(C(Color.Bold + Color.BrightWhite, "  Manage RFID Tags"));
+            Console.WriteLine(C(Color.BrightCyan, "═══════════════════════════════════════════════════════"));
             Console.WriteLine();
 
             var tagList = new List<(string uid, string name)>();
@@ -560,22 +636,22 @@ class RFMediaLinkConfigurator
                     count++;
                     var name = tag.Value.TryGetProperty("name", out var n) ? n.GetString() : "Unknown";
                     tagList.Add((tag.Name, name));
-                    Console.WriteLine($"{count}. [{tag.Name}] {name}");
+                    Console.WriteLine(C(Color.BrightYellow, $"{count}.") + C(Color.BrightBlack, $" [{tag.Name}]") + $" {name}");
                 }
             }
 
             if (tagList.Count == 0)
             {
-                Console.WriteLine("(No tags configured)");
+                Console.WriteLine(C(Color.BrightBlack, "(No tags configured)"));
             }
 
             Console.WriteLine();
-            Console.WriteLine("A. Add Tag");
-            Console.WriteLine("E. Edit Tag");
-            Console.WriteLine("D. Delete Tag");
-            Console.WriteLine("B. Back to Menu");
+            Console.WriteLine(C(Color.BrightGreen, "A.") + " Add Tag");
+            Console.WriteLine(C(Color.BrightGreen, "E.") + " Edit Tag");
+            Console.WriteLine(C(Color.BrightGreen, "D.") + " Delete Tag");
+            Console.WriteLine(C(Color.BrightRed, "B.") + " Back to Menu");
             Console.WriteLine();
-            Console.Write("Select option (A/E/D/B): ");
+            Console.Write(C(Color.BrightCyan, "Select option (A/E/D/B): "));
 
             string choice = Console.ReadLine()?.ToUpper() ?? "";
             switch (choice)
@@ -598,14 +674,14 @@ class RFMediaLinkConfigurator
     private static void AddTag()
     {
         Console.Clear();
-        Console.WriteLine("═══════════════════════════════════════════════════════");
-        Console.WriteLine("  Add RFID Tag");
-        Console.WriteLine("═══════════════════════════════════════════════════════");
+        Console.WriteLine(C(Color.BrightCyan, "═══════════════════════════════════════════════════════"));
+        Console.WriteLine(C(Color.Bold + Color.BrightWhite, "  Add RFID Tag"));
+        Console.WriteLine(C(Color.BrightCyan, "═══════════════════════════════════════════════════════"));
         Console.WriteLine();
         
         // Step 1: Get UID (default to scanning)
-        Console.WriteLine("Waiting for scan (place tag on reader)...");
-        Console.WriteLine("Press Enter to enter UID manually.");
+        Console.WriteLine(C(Color.BrightYellow, "Waiting for scan (place tag on reader)..."));
+        Console.WriteLine(C(Color.BrightBlack, "Press Enter to enter UID manually."));
         string uid = WaitForScan();
 
         if (string.IsNullOrEmpty(uid))
@@ -1053,6 +1129,9 @@ class RFMediaLinkConfigurator
         // Write to file
         File.WriteAllText(CatalogFile, jsonString);
         
+        // Backup after save
+        BackupConfigFiles();
+        
         // Update in-memory catalog from the same JSON we just wrote
         CatalogDoc?.Dispose();
         CatalogDoc = JsonDocument.Parse(jsonString);
@@ -1070,43 +1149,52 @@ class RFMediaLinkConfigurator
         Console.WriteLine();
 
         // Show current tags
+        var tagList = new List<(string id, string name)>();
         if (Catalog.ValueKind == JsonValueKind.Object)
         {
-            var tagList = new List<(string id, string name)>();
             foreach (var tag in Catalog.EnumerateObject())
             {
                 var name = tag.Value.TryGetProperty("name", out var n) ? n.GetString() : "Unknown";
-                tagList.Add((tag.Name, name));
-            }
-
-            if (tagList.Count > 0)
-            {
-                Console.WriteLine("Current tags:");
-                foreach (var (id, name) in tagList)
-                {
-                    Console.WriteLine($"  {id} - {name}");
-                }
-                Console.WriteLine();
-            }
-            else
-            {
-                Console.WriteLine("(No tags configured)");
-                Console.WriteLine();
+                tagList.Add((tag.Name, name ?? "Unknown"));
             }
         }
 
-        Console.Write("Enter Tag UID to delete: ");
-        string uid = Console.ReadLine() ?? "";
-
-        if (string.IsNullOrEmpty(uid))
+        if (tagList.Count > 0)
         {
-            Console.WriteLine("Cancelled.");
+            Console.WriteLine("Select tag to delete:");
+            for (int i = 0; i < tagList.Count; i++)
+            {
+                Console.WriteLine($"  {i + 1}. [{tagList[i].id}] {tagList[i].name}");
+            }
+            Console.WriteLine();
         }
         else
         {
-            Console.Write("Confirm delete? (Y/N): ");
-            if (Console.ReadLine()?.ToUpper() == "Y")
-            {
+            Console.WriteLine("(No tags configured)");
+            Console.WriteLine();
+            Console.WriteLine("Press any key...");
+            Console.ReadKey();
+            return;
+        }
+
+        Console.Write("Enter number (or 0 to cancel): ");
+        string input = Console.ReadLine() ?? "";
+
+        if (!int.TryParse(input, out int choice) || choice < 1 || choice > tagList.Count)
+        {
+            if (choice != 0)
+                Console.WriteLine("Invalid selection.");
+            System.Threading.Thread.Sleep(1000);
+            return;
+        }
+
+        string uid = tagList[choice - 1].id;
+
+        Console.WriteLine();
+        Console.WriteLine($"Delete: [{uid}] {tagList[choice - 1].name}");
+        Console.Write("Confirm delete? (Y/N): ");
+        if (Console.ReadLine()?.ToUpper() == "Y")
+        {
                 var catalog = new Dictionary<string, object>();
                 if (File.Exists(CatalogFile))
                 {
@@ -1138,12 +1226,14 @@ class RFMediaLinkConfigurator
                 string jsonString = JsonSerializer.Serialize(catalog, options);
                 File.WriteAllText(CatalogFile, jsonString);
                 
+                // Backup after delete
+                BackupConfigFiles();
+                
                 // Update in-memory catalog
                 CatalogDoc?.Dispose();
                 CatalogDoc = JsonDocument.Parse(jsonString);
                 
                 Console.WriteLine("Tag deleted!");
-            }
         }
 
         Console.WriteLine("Press any key...");
@@ -1437,11 +1527,487 @@ class RFMediaLinkConfigurator
             Console.WriteLine("File opened. Press any key when done editing...");
             Console.ReadKey();
             LoadAllData(); // Reload after editing
+            BackupConfigFiles(); // Backup after editing
         }
         catch (Exception ex)
         {
             Console.WriteLine($"ERROR: {ex.Message}");
             System.Threading.Thread.Sleep(3000);
+        }
+    }
+
+    // ============================================================
+    // Backup & Restore System
+    // ============================================================
+
+    private static void InitializeBackupDir()
+    {
+        try
+        {
+            var documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            BackupDir = Path.Combine(documentsPath, "RFMediaLink", "Backups");
+            
+            if (!Directory.Exists(BackupDir))
+            {
+                Directory.CreateDirectory(BackupDir);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Warning: Could not initialize backup directory: {ex.Message}");
+            BackupDir = Path.Combine(Path.GetTempPath(), "RFMediaLink_Backups");
+        }
+    }
+
+    private static void CheckForAutoRestore()
+    {
+        try
+        {
+            // Check if catalog or emulators are missing but backups exist
+            bool catalogMissing = !File.Exists(CatalogFile) || new FileInfo(CatalogFile).Length == 0;
+            bool emulatorsMissing = !File.Exists(EmulatorsFile) || new FileInfo(EmulatorsFile).Length == 0;
+
+            if (!catalogMissing && !emulatorsMissing)
+                return; // Everything exists, no need to restore
+
+            var backupFiles = Directory.GetFiles(BackupDir, "*.json", SearchOption.TopDirectoryOnly);
+            if (backupFiles.Length == 0)
+                return; // No backups available
+
+            Console.Clear();
+            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine("  Missing Configuration Files Detected!");
+            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine();
+            
+            if (catalogMissing)
+                Console.WriteLine("⚠ catalog.json is missing or empty");
+            if (emulatorsMissing)
+                Console.WriteLine("⚠ emulators.json is missing or empty");
+            
+            Console.WriteLine();
+            Console.WriteLine("Backups found in Documents\\RFMediaLink\\Backups");
+            Console.WriteLine();
+            Console.Write("Would you like to restore from the most recent backup? (Y/N): ");
+            
+            if (Console.ReadLine()?.ToUpper() == "Y")
+            {
+                RestoreLatestBackup(catalogMissing, emulatorsMissing);
+            }
+        }
+        catch { }
+    }
+
+    private static void RestoreLatestBackup(bool restoreCatalog, bool restoreEmulators)
+    {
+        try
+        {
+            if (restoreCatalog)
+            {
+                var catalogBackups = Directory.GetFiles(BackupDir, "catalog_*.json")
+                    .OrderByDescending(f => File.GetLastWriteTime(f))
+                    .ToArray();
+                
+                if (catalogBackups.Length > 0)
+                {
+                    File.Copy(catalogBackups[0], CatalogFile, true);
+                    Console.WriteLine($"✓ Restored catalog from: {Path.GetFileName(catalogBackups[0])}");
+                }
+            }
+
+            if (restoreEmulators)
+            {
+                var emulatorBackups = Directory.GetFiles(BackupDir, "emulators_*.json")
+                    .OrderByDescending(f => File.GetLastWriteTime(f))
+                    .ToArray();
+                
+                if (emulatorBackups.Length > 0)
+                {
+                    File.Copy(emulatorBackups[0], EmulatorsFile, true);
+                    Console.WriteLine($"✓ Restored emulators from: {Path.GetFileName(emulatorBackups[0])}");
+                }
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("Restore complete!");
+            System.Threading.Thread.Sleep(2000);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ERROR during restore: {ex.Message}");
+            System.Threading.Thread.Sleep(3000);
+        }
+    }
+
+    private static void BackupConfigFiles()
+    {
+        try
+        {
+            BackupFile(CatalogFile, "catalog");
+            BackupFile(EmulatorsFile, "emulators");
+        }
+        catch { }
+    }
+
+    private static void BackupFile(string sourceFile, string baseName)
+    {
+        try
+        {
+            if (!File.Exists(sourceFile))
+                return;
+
+            var sourceInfo = new FileInfo(sourceFile);
+            if (sourceInfo.Length == 0)
+                return; // Don't backup empty files
+
+            // Find most recent backup
+            var existingBackups = Directory.GetFiles(BackupDir, $"{baseName}_*.json")
+                .OrderByDescending(f => File.GetLastWriteTime(f))
+                .ToArray();
+
+            // Check if we should create a new backup
+            bool shouldBackup = false;
+            
+            if (existingBackups.Length == 0)
+            {
+                shouldBackup = true; // No backups exist
+            }
+            else
+            {
+                var lastBackup = new FileInfo(existingBackups[0]);
+                var currentSize = sourceInfo.Length;
+                var lastSize = lastBackup.Length;
+
+                if (currentSize > lastSize)
+                {
+                    // Size increased - definitely backup
+                    shouldBackup = true;
+                }
+                else if (currentSize < lastSize)
+                {
+                    // Size decreased - still backup but keep the larger one too
+                    shouldBackup = true;
+                }
+                else
+                {
+                    // Same size - check if content changed
+                    var currentHash = GetFileHash(sourceFile);
+                    var lastHash = GetFileHash(existingBackups[0]);
+                    shouldBackup = currentHash != lastHash;
+                }
+            }
+
+            if (shouldBackup)
+            {
+                var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                var backupPath = Path.Combine(BackupDir, $"{baseName}_{timestamp}.json");
+                File.Copy(sourceFile, backupPath, true);
+
+                // Clean up old backups - keep last 20
+                CleanOldBackups(baseName, 20);
+            }
+        }
+        catch { }
+    }
+
+    private static string GetFileHash(string filePath)
+    {
+        try
+        {
+            using (var md5 = System.Security.Cryptography.MD5.Create())
+            using (var stream = File.OpenRead(filePath))
+            {
+                var hash = md5.ComputeHash(stream);
+                return BitConverter.ToString(hash).Replace("-", "").ToLower();
+            }
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
+    private static void CleanOldBackups(string baseName, int keepCount)
+    {
+        try
+        {
+            var backups = Directory.GetFiles(BackupDir, $"{baseName}_*.json")
+                .OrderByDescending(f => File.GetLastWriteTime(f))
+                .ToArray();
+
+            for (int i = keepCount; i < backups.Length; i++)
+            {
+                try { File.Delete(backups[i]); } catch { }
+            }
+        }
+        catch { }
+    }
+
+    private static void BackupAndRestore()
+    {
+        while (true)
+        {
+            Console.Clear();
+            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine("  Backup & Restore");
+            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine($"Backup Location: {BackupDir}");
+            Console.WriteLine();
+
+            // Show backup stats
+            try
+            {
+                var catalogBackups = Directory.GetFiles(BackupDir, "catalog_*.json");
+                var emulatorBackups = Directory.GetFiles(BackupDir, "emulators_*.json");
+                
+                Console.WriteLine($"Catalog Backups: {catalogBackups.Length}");
+                if (catalogBackups.Length > 0)
+                {
+                    var latest = catalogBackups.OrderByDescending(f => File.GetLastWriteTime(f)).First();
+                    Console.WriteLine($"  Latest: {Path.GetFileName(latest)}");
+                    Console.WriteLine($"  Date: {File.GetLastWriteTime(latest)}");
+                }
+                Console.WriteLine();
+
+                Console.WriteLine($"Emulator Backups: {emulatorBackups.Length}");
+                if (emulatorBackups.Length > 0)
+                {
+                    var latest = emulatorBackups.OrderByDescending(f => File.GetLastWriteTime(f)).First();
+                    Console.WriteLine($"  Latest: {Path.GetFileName(latest)}");
+                    Console.WriteLine($"  Date: {File.GetLastWriteTime(latest)}");
+                }
+                Console.WriteLine();
+            }
+            catch { }
+
+            Console.WriteLine("1. Create Backup Now");
+            Console.WriteLine("2. Restore from Recent Backup");
+            Console.WriteLine("3. Restore from File");
+            Console.WriteLine("4. Open Backup Folder");
+            Console.WriteLine("5. Back to Main Menu");
+            Console.WriteLine();
+            Console.Write("Select option (1-5): ");
+
+            string choice = Console.ReadLine();
+            switch (choice)
+            {
+                case "1":
+                    CreateBackupNow();
+                    break;
+                case "2":
+                    RestoreFromRecent();
+                    break;
+                case "3":
+                    RestoreFromFile();
+                    break;
+                case "4":
+                    OpenBackupFolder();
+                    break;
+                case "5":
+                    return;
+            }
+        }
+    }
+
+    private static void CreateBackupNow()
+    {
+        Console.WriteLine();
+        Console.WriteLine("Creating backup...");
+        
+        try
+        {
+            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            
+            if (File.Exists(CatalogFile))
+            {
+                var backupPath = Path.Combine(BackupDir, $"catalog_{timestamp}.json");
+                File.Copy(CatalogFile, backupPath, true);
+                Console.WriteLine($"✓ Catalog backed up: {Path.GetFileName(backupPath)}");
+            }
+
+            if (File.Exists(EmulatorsFile))
+            {
+                var backupPath = Path.Combine(BackupDir, $"emulators_{timestamp}.json");
+                File.Copy(EmulatorsFile, backupPath, true);
+                Console.WriteLine($"✓ Emulators backed up: {Path.GetFileName(backupPath)}");
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("Backup complete!");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ERROR: {ex.Message}");
+        }
+
+        System.Threading.Thread.Sleep(2000);
+    }
+
+    private static void RestoreFromRecent()
+    {
+        Console.Clear();
+        Console.WriteLine("═══════════════════════════════════════════════════════");
+        Console.WriteLine("  Restore from Recent Backup");
+        Console.WriteLine("═══════════════════════════════════════════════════════");
+        Console.WriteLine();
+
+        try
+        {
+            // Show recent backups
+            var catalogBackups = Directory.GetFiles(BackupDir, "catalog_*.json")
+                .OrderByDescending(f => File.GetLastWriteTime(f))
+                .Take(5)
+                .ToArray();
+
+            var emulatorBackups = Directory.GetFiles(BackupDir, "emulators_*.json")
+                .OrderByDescending(f => File.GetLastWriteTime(f))
+                .Take(5)
+                .ToArray();
+
+            if (catalogBackups.Length == 0 && emulatorBackups.Length == 0)
+            {
+                Console.WriteLine("No backups found!");
+                System.Threading.Thread.Sleep(2000);
+                return;
+            }
+
+            Console.WriteLine("Recent Catalog Backups:");
+            for (int i = 0; i < catalogBackups.Length; i++)
+            {
+                var info = new FileInfo(catalogBackups[i]);
+                Console.WriteLine($"  {i + 1}. {Path.GetFileName(catalogBackups[i])} ({info.Length} bytes, {info.LastWriteTime})");
+            }
+            Console.WriteLine();
+
+            Console.WriteLine("Recent Emulator Backups:");
+            for (int i = 0; i < emulatorBackups.Length; i++)
+            {
+                var info = new FileInfo(emulatorBackups[i]);
+                Console.WriteLine($"  {i + 1}. {Path.GetFileName(emulatorBackups[i])} ({info.Length} bytes, {info.LastWriteTime})");
+            }
+            Console.WriteLine();
+
+            Console.WriteLine("Restore Options:");
+            Console.WriteLine("1. Restore Both (most recent)");
+            Console.WriteLine("2. Restore Catalog Only");
+            Console.WriteLine("3. Restore Emulators Only");
+            Console.WriteLine("4. Cancel");
+            Console.WriteLine();
+            Console.Write("Select option (1-4): ");
+
+            string choice = Console.ReadLine();
+            Console.WriteLine();
+
+            switch (choice)
+            {
+                case "1":
+                    if (catalogBackups.Length > 0)
+                    {
+                        File.Copy(catalogBackups[0], CatalogFile, true);
+                        Console.WriteLine($"✓ Restored catalog from: {Path.GetFileName(catalogBackups[0])}");
+                    }
+                    if (emulatorBackups.Length > 0)
+                    {
+                        File.Copy(emulatorBackups[0], EmulatorsFile, true);
+                        Console.WriteLine($"✓ Restored emulators from: {Path.GetFileName(emulatorBackups[0])}");
+                    }
+                    LoadAllData(); // Reload
+                    break;
+                case "2":
+                    if (catalogBackups.Length > 0)
+                    {
+                        File.Copy(catalogBackups[0], CatalogFile, true);
+                        Console.WriteLine($"✓ Restored catalog from: {Path.GetFileName(catalogBackups[0])}");
+                        LoadAllData();
+                    }
+                    break;
+                case "3":
+                    if (emulatorBackups.Length > 0)
+                    {
+                        File.Copy(emulatorBackups[0], EmulatorsFile, true);
+                        Console.WriteLine($"✓ Restored emulators from: {Path.GetFileName(emulatorBackups[0])}");
+                        LoadAllData();
+                    }
+                    break;
+            }
+
+            if (choice != "4")
+            {
+                Console.WriteLine();
+                Console.WriteLine("Restore complete!");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ERROR: {ex.Message}");
+        }
+
+        System.Threading.Thread.Sleep(2000);
+    }
+
+    private static void RestoreFromFile()
+    {
+        Console.Clear();
+        Console.WriteLine("═══════════════════════════════════════════════════════");
+        Console.WriteLine("  Restore from File");
+        Console.WriteLine("═══════════════════════════════════════════════════════");
+        Console.WriteLine();
+
+        Console.WriteLine("Enter the full path to the backup file to restore:");
+        Console.Write("> ");
+        string filePath = (Console.ReadLine() ?? "").Trim().Trim('"');
+
+        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+        {
+            Console.WriteLine("File not found or invalid path.");
+            System.Threading.Thread.Sleep(2000);
+            return;
+        }
+
+        try
+        {
+            var fileName = Path.GetFileName(filePath).ToLower();
+            
+            if (fileName.Contains("catalog"))
+            {
+                File.Copy(filePath, CatalogFile, true);
+                Console.WriteLine($"✓ Restored catalog from: {fileName}");
+                LoadAllData();
+            }
+            else if (fileName.Contains("emulator"))
+            {
+                File.Copy(filePath, EmulatorsFile, true);
+                Console.WriteLine($"✓ Restored emulators from: {fileName}");
+                LoadAllData();
+            }
+            else
+            {
+                Console.WriteLine("Could not determine file type. File name should contain 'catalog' or 'emulator'.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ERROR: {ex.Message}");
+        }
+
+        System.Threading.Thread.Sleep(2000);
+    }
+
+    private static void OpenBackupFolder()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = BackupDir,
+                UseShellExecute = true,
+                Verb = "open"
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ERROR: {ex.Message}");
+            System.Threading.Thread.Sleep(2000);
         }
     }
 }
