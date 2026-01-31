@@ -1,40 +1,37 @@
 # Stop RF Media Link Service
-# Requires Administrator privileges
+# Stops the RF Media Link background process
 
-$ServiceName = "RF Media Link"
+$ProcessName = "RFMediaLinkService"
 
-# Check if running as admin
-$currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
-$principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
-$isAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+Write-Host "Stopping RF Media Link Service..." -ForegroundColor Yellow
 
-if (-not $isAdmin) {
-    # Relaunch as administrator
-    Start-Process powershell.exe -Verb RunAs -ArgumentList "-ExecutionPolicy Bypass -File `"$PSCommandPath`""
-    exit
-}
+# Check if process is running
+$process = Get-Process -Name $ProcessName -ErrorAction SilentlyContinue
 
-Write-Host "Stopping RF Media Link Service..."
-$service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
-
-if (-not $service) {
-    Write-Host "Error: Service not found!" -ForegroundColor Red
+if (-not $process) {
+    Write-Host "Service is not running." -ForegroundColor Yellow
     pause
-    exit 1
+    exit 0
 }
 
-if ($service.Status -eq "Stopped") {
-    Write-Host "Service is already stopped." -ForegroundColor Yellow
-} else {
-    Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
+Write-Host "Found running service (PID: $($process.Id))" -ForegroundColor Cyan
+
+try {
+    # Stop the process
+    Stop-Process -Name $ProcessName -Force -ErrorAction Stop
     Start-Sleep -Seconds 2
-    $service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
     
-    if ($service.Status -eq "Stopped") {
-        Write-Host "Service stopped successfully!" -ForegroundColor Green
+    # Verify it stopped
+    $stillRunning = Get-Process -Name $ProcessName -ErrorAction SilentlyContinue
+    
+    if ($stillRunning) {
+        Write-Host "Failed to stop service. Process still running." -ForegroundColor Red
     } else {
-        Write-Host "Failed to stop service. Status: $($service.Status)" -ForegroundColor Red
+        Write-Host "Service stopped successfully!" -ForegroundColor Green
     }
+}
+catch {
+    Write-Host "Error stopping service: $($_.Exception.Message)" -ForegroundColor Red
 }
 
 pause

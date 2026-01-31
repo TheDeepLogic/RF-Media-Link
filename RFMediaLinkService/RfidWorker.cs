@@ -885,8 +885,57 @@ public class RfidWorker : BackgroundService
 
         try
         {
-            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            var process = Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
             _logger.LogInformation($"Launched file: {path}");
+            
+            // If the file is an executable, try to bring it to focus
+            var extension = Path.GetExtension(path)?.ToLower();
+            if (extension == ".exe" || extension == ".bat" || extension == ".cmd")
+            {
+                // Use ALT+TAB simulation to bring window to foreground
+                // This is more reliable than SetForegroundWindow and works without admin rights
+                if (process != null && !process.HasExited)
+                {
+                    Task.Run(async () =>
+                    {
+                        try
+                        {
+                            // Wait for window to be created
+                            for (int attempt = 0; attempt < 10; attempt++)
+                            {
+                                await Task.Delay(300);
+                                process.Refresh();
+                                
+                                if (process.HasExited)
+                                    break;
+                                    
+                                var handle = process.MainWindowHandle;
+                                if (handle != IntPtr.Zero)
+                                {
+                                    // Simulate ALT key press and release to allow SetForegroundWindow
+                                    keybd_event(VK_MENU, 0, 0, IntPtr.Zero);
+                                    SetForegroundWindow(handle);
+                                    ShowWindow(handle, SW_RESTORE);
+                                    ShowWindow(handle, SW_SHOW);
+                                    BringWindowToTop(handle);
+                                    SetForegroundWindow(handle);
+                                    keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, IntPtr.Zero);
+                                    
+                                    _logger.LogInformation($"Activated window for {Path.GetFileName(path)} (attempt {attempt + 1})");
+                                    
+                                    // Try a few more times to be sure
+                                    if (attempt >= 2)
+                                        break;
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Could not activate window");
+                        }
+                    });
+                }
+            }
         }
         catch (Exception ex)
         {
