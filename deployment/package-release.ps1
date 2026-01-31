@@ -79,6 +79,7 @@ Write-Host "Copying installation scripts..." -ForegroundColor Green
 $deploymentSrc = Join-Path $rootDir "deployment"
 Copy-Item -Path "$deploymentSrc\install.bat" -Destination $packageDir -Force
 Copy-Item -Path "$deploymentSrc\install-rfmedialink.ps1" -Destination $packageDir -Force
+Copy-Item -Path "$deploymentSrc\launch-configure.bat" -Destination $packageDir -Force
 Copy-Item -Path "$deploymentSrc\uninstall.bat" -Destination $scriptsDir -Force
 Copy-Item -Path "$deploymentSrc\uninstall.ps1" -Destination $scriptsDir -Force
 Copy-Item -Path "$deploymentSrc\start-service.ps1" -Destination $scriptsDir -Force

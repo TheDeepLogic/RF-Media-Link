@@ -106,14 +106,31 @@ class RFMediaLinkConfigurator
                 if (SetConsoleMode(handle, mode))
                 {
                     AnsiSupported = true;
-                    // Set black background
-                    Console.Write("\x1b[40m\x1b[2J\x1b[H");
                 }
             }
         }
         catch
         {
             AnsiSupported = false;
+        }
+        
+        // Always try to set black background and clear screen, regardless of ANSI support
+        // This helps when launched from shortcuts with default console colors
+        try
+        {
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.Clear();
+            
+            // If ANSI is supported, also use ANSI codes for better color control
+            if (AnsiSupported)
+            {
+                Console.Write("\x1b[40m\x1b[37m"); // Black background, white foreground
+            }
+        }
+        catch
+        {
+            // Fallback if console color setting fails
         }
     }
 
@@ -653,9 +670,10 @@ class RFMediaLinkConfigurator
             Console.WriteLine(C(Color.BrightGreen, "A.") + " Add Tag");
             Console.WriteLine(C(Color.BrightGreen, "E.") + " Edit Tag");
             Console.WriteLine(C(Color.BrightGreen, "D.") + " Delete Tag");
+            Console.WriteLine(C(Color.BrightGreen, "L.") + " Launch Tag");
             Console.WriteLine(C(Color.BrightRed, "B.") + " Back to Menu");
             Console.WriteLine();
-            Console.Write(C(Color.BrightCyan, "Select option (A/E/D/B): "));
+            Console.Write(C(Color.BrightCyan, "Select option (A/E/D/L/B): "));
 
             string choice = Console.ReadLine()?.ToUpper() ?? "";
             switch (choice)
@@ -668,6 +686,9 @@ class RFMediaLinkConfigurator
                     break;
                 case "D":
                     DeleteTag();
+                    break;
+                case "L":
+                    LaunchTag(tagList);
                     break;
                 case "B":
                     return;
@@ -1242,6 +1263,188 @@ class RFMediaLinkConfigurator
 
         Console.WriteLine("Press any key...");
         Console.ReadKey();
+    }
+
+    private static void LaunchTag(List<(string uid, string name)> tagList)
+    {
+        // Reload to get latest tags
+        LoadAllData();
+        
+        Console.Clear();
+        Console.WriteLine(C(Color.BrightCyan, "═══════════════════════════════════════════════════════"));
+        Console.WriteLine(C(Color.Bold + Color.BrightWhite, "  Launch RFID Tag"));
+        Console.WriteLine(C(Color.BrightCyan, "═══════════════════════════════════════════════════════"));
+        Console.WriteLine();
+
+        if (tagList.Count == 0)
+        {
+            Console.WriteLine(C(Color.BrightBlack, "(No tags configured)"));
+            Console.WriteLine();
+            Console.WriteLine("Press any key...");
+            Console.ReadKey();
+            return;
+        }
+
+        Console.WriteLine("Select tag to launch:");
+        for (int i = 0; i < tagList.Count; i++)
+        {
+            Console.WriteLine(C(Color.BrightYellow, $"  {i + 1}.") + C(Color.BrightBlack, $" [{tagList[i].uid}]") + $" {tagList[i].name}");
+        }
+        Console.WriteLine();
+
+        Console.Write(C(Color.BrightCyan, "Enter number (or 0 to cancel): "));
+        string input = Console.ReadLine() ?? "";
+
+        if (!int.TryParse(input, out int choice) || choice < 1 || choice > tagList.Count)
+        {
+            if (choice != 0)
+            {
+                Console.WriteLine(C(Color.BrightRed, "Invalid selection."));
+                System.Threading.Thread.Sleep(1000);
+            }
+            return;
+        }
+
+        string uid = tagList[choice - 1].uid;
+        var foundUid = FindTagUid(uid);
+        if (foundUid == null)
+        {
+            Console.WriteLine(C(Color.BrightRed, $"Tag {uid} not found."));
+            System.Threading.Thread.Sleep(1500);
+            return;
+        }
+
+        var tag = Catalog.GetProperty(foundUid);
+        string actionType = tag.TryGetProperty("action_type", out var at) ? at.GetString() ?? "" : "";
+        string actionTarget = tag.TryGetProperty("action_target", out var atgt) ? atgt.GetString() ?? "" : "";
+
+        Console.WriteLine();
+        Console.WriteLine(C(Color.BrightGreen, $"Launching: {tagList[choice - 1].name}"));
+        Console.WriteLine(C(Color.BrightBlack, $"Action: {actionType} -> {actionTarget}"));
+        Console.WriteLine();
+
+        try
+        {
+            switch (actionType.ToLower())
+            {
+                case "emulator":
+                    var args = new Dictionary<string, string>();
+                    if (tag.TryGetProperty("action_args", out var argsElem) && argsElem.ValueKind == JsonValueKind.Object)
+                    {
+                        foreach (var arg in argsElem.EnumerateObject())
+                        {
+                            args[arg.Name] = arg.Value.GetString() ?? "";
+                        }
+                    }
+                    LaunchEmulatorDirect(actionTarget, args);
+                    break;
+                case "file":
+                    LaunchFileDirect(actionTarget);
+                    break;
+                case "url":
+                    LaunchUrlDirect(actionTarget);
+                    break;
+                case "command":
+                    LaunchCommandDirect(actionTarget);
+                    break;
+                default:
+                    Console.WriteLine(C(Color.BrightRed, $"Unknown action type: {actionType}"));
+                    System.Threading.Thread.Sleep(2000);
+                    return;
+            }
+
+            Console.WriteLine(C(Color.BrightGreen, "Launched successfully!"));
+            System.Threading.Thread.Sleep(1500);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(C(Color.BrightRed, $"Error launching: {ex.Message}"));
+            Console.WriteLine();
+            Console.WriteLine("Press any key...");
+            Console.ReadKey();
+        }
+    }
+
+    private static void LaunchEmulatorDirect(string emulatorId, Dictionary<string, string> args)
+    {
+        if (Emulators.ValueKind != JsonValueKind.Object || !Emulators.TryGetProperty(emulatorId, out var emulator))
+        {
+            throw new Exception($"Emulator '{emulatorId}' not found");
+        }
+
+        string executable = emulator.TryGetProperty("executable", out var exe) ? exe.GetString() ?? "" : "";
+        if (string.IsNullOrEmpty(executable) || !File.Exists(executable))
+        {
+            throw new Exception($"Executable not found: {executable}");
+        }
+
+        var cmdArgs = new List<string>();
+        if (emulator.TryGetProperty("arguments", out var arguments) && arguments.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var arg in arguments.EnumerateArray())
+            {
+                string argName = arg.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
+                string flag = arg.TryGetProperty("flag", out var f) ? f.GetString() ?? "" : "";
+                string argType = arg.TryGetProperty("type", out var t) ? t.GetString() ?? "" : "";
+
+                if (args.TryGetValue(argName, out string value) && !string.IsNullOrEmpty(value))
+                {
+                    if (argType == "toggle" && value.ToLower() == "true")
+                    {
+                        cmdArgs.Add(flag);
+                    }
+                    else if (!string.IsNullOrEmpty(flag))
+                    {
+                        cmdArgs.Add(flag);
+                        cmdArgs.Add(value);
+                    }
+                    else
+                    {
+                        cmdArgs.Add(value);
+                    }
+                }
+            }
+        }
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = executable,
+            Arguments = string.Join(" ", cmdArgs.Select(a => a.Contains(" ") ? $"\"{a}\"" : a)),
+            UseShellExecute = true
+        };
+        Process.Start(psi);
+    }
+
+    private static void LaunchFileDirect(string filePath)
+    {
+        // Check if it's a URI scheme (ms-phone:, mailto:, http://, etc.)
+        // Drive letters are at position 1: C:\path
+        // URI schemes are at other positions: ms-phone: or http://url
+        int colonPos = filePath.IndexOf(':');
+        bool isUriScheme = colonPos > 1; // Not a drive letter (which is at position 1)
+
+        // Only validate file existence for actual file paths
+        if (!isUriScheme && !File.Exists(filePath))
+        {
+            throw new Exception($"File not found: {filePath}");
+        }
+        
+        Process.Start(new ProcessStartInfo { FileName = filePath, UseShellExecute = true });
+    }
+
+    private static void LaunchUrlDirect(string url)
+    {
+        Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+    }
+
+    private static void LaunchCommandDirect(string command)
+    {
+        Process.Start(new ProcessStartInfo 
+        { 
+            FileName = "cmd.exe",
+            Arguments = $"/c {command}",
+            UseShellExecute = true
+        });
     }
 
     private static void ViewEmulators()

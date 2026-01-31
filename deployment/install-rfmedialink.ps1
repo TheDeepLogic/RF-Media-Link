@@ -254,7 +254,7 @@ if (Test-Path (Join-Path $scriptDir "scripts")) {
     $scriptsSourceDir = $scriptDir
 }
 
-foreach ($file in @("start-service.ps1", "stop-service.ps1", "restart-service.ps1", "update-service.ps1", "uninstall.ps1", "open-catalog.bat", "open-emulators.bat")) {
+foreach ($file in @("start-service.ps1", "stop-service.ps1", "restart-service.ps1", "update-service.ps1", "uninstall.ps1", "open-catalog.bat", "open-emulators.bat", "launch-configure.bat")) {
     $sourcePath = Join-Path $scriptsSourceDir $file
     $destPath = "$InstallDir\$file"
     if (Test-Path $sourcePath) {
@@ -339,9 +339,9 @@ if (-not $iconPath) {
 }
 
 # Desktop shortcut
-$configuratorPath = "$InstallDir\RFMediaLink.exe"
+$launchBat = "$InstallDir\launch-configure.bat"
 $desktopShortcut = Join-Path $DesktopPath "RF Media Link Configure.lnk"
-Create-Shortcut -TargetPath $configuratorPath -ShortcutPath $desktopShortcut -Description "RF Media Link Configurator" -WorkingDirectory $InstallDir -IconLocation $iconPath
+Create-Shortcut -TargetPath $launchBat -ShortcutPath $desktopShortcut -Description "RF Media Link Configurator" -WorkingDirectory $InstallDir -IconLocation $iconPath
 
 # Create Start Menu folder
 if (-not (Test-Path $StartMenuFolder)) {
@@ -350,7 +350,7 @@ if (-not (Test-Path $StartMenuFolder)) {
 
 # Start Menu shortcut - Configurator
 $startMenuShortcut = Join-Path $StartMenuFolder "RF Media Link Configure.lnk"
-Create-Shortcut -TargetPath $configuratorPath -ShortcutPath $startMenuShortcut -Description "RF Media Link Configurator" -WorkingDirectory $InstallDir -IconLocation $iconPath
+Create-Shortcut -TargetPath $launchBat -ShortcutPath $startMenuShortcut -Description "RF Media Link Configurator" -WorkingDirectory $InstallDir -IconLocation $iconPath
 
 # Start Menu - Service Management shortcuts
 $startServiceShortcut = Join-Path $StartMenuFolder "Start Service.lnk"

@@ -30,10 +30,11 @@
 
 ### Enhanced Management (v0.9.0-dev)
 - **Numbered Tag Selection**: Select tags by number instead of typing full UIDs
+- **Launch Tag Testing**: Test configured tags directly from configurator without scanning
 - **Backup & Restore System**: Automatic and manual backups to Documents\RFMediaLink\Backups with smart change detection
 - **Service Control**: Start, stop, and restart service directly from configurator
 - **Log Viewer**: View Event Logs with filtering (Recent, Errors & Warnings, Today) and detailed inspection
-- **Toast Notifications**: System notifications for scan errors and issues (no spam on successful scans)
+- **Interactive Notifications**: MessageBox prompts for scan errors with option to launch configurator
 - **Emulator Management**: View and edit emulator definitions from configurator
 - **Auto-Reconnect**: Serial port automatically reconnects when RFID reader is unplugged/replugged
 - **Centralized Version Management**: Single VERSION file with semantic versioning (supports pre-release tags like `-dev`, `-alpha`, `-beta`)
@@ -356,6 +357,19 @@ B. Back to Menu
 4. For emulator tags, you can change the emulator and update arguments
 5. Confirm save
 
+### Launching Tags (Testing)
+
+1. Press `L` from Manage Tags menu
+2. Select a tag by number from the list
+3. The configured action will execute immediately
+4. Useful for testing tags without physically scanning them
+
+Supports all action types:
+- **Emulators**: Launches with configured disk images/ROMs
+- **Files**: Opens files or URI schemes (e.g., `ms-phone:`, `mailto:`)
+- **URLs**: Opens in default browser
+- **Commands**: Executes shell commands
+
 ---
 
 ## Service Management
@@ -423,14 +437,20 @@ Get-WinEvent -FilterHashtable @{LogName='Application'; ProviderName='RFMediaLink
 Get-WinEvent -FilterHashtable @{LogName='Application'; ProviderName='RFMediaLinkService'; Level=1,2,3} -MaxEvents 50
 ```
 
-### Toast Notifications
+### Notifications
 
-The service displays Windows toast notifications for:
-- **Tag not found in catalog**: Unknown RFID tag scanned
+The service displays **MessageBox notifications** for errors and issues:
+
+**Tag Not Found:**
+- Shows dialog: "Tag [UID] not in catalog. Open Configure to add this tag?"
+- Click **Yes** to launch the configurator automatically
+- Click **No** to dismiss
+
+**Other Errors:**
 - **Emulator not found**: Configured emulator doesn't exist
 - **Launch failures**: Application failed to start
 
-Notifications appear in the Windows Action Center and disappear automatically. **Successful scans do not show notifications** to avoid clutter during normal operation.
+Notifications appear as modal dialogs that stay visible until dismissed. **Successful scans do not show notifications** to avoid interruption during normal operation.
 
 ### Update Service
 

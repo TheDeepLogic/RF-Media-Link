@@ -141,36 +141,43 @@ public class RfidWorker : BackgroundService
     {
         try
         {
-            // Use PowerShell to show a Windows toast notification
-            var script = $@"
-[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
-[Windows.UI.Notifications.ToastNotification, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
-[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
-
-$template = @""
-<toast>
-    <visual>
-        <binding template='ToastGeneric'>
-            <text>{title.Replace("\"", "'")}</text>
-            <text>{message.Replace("\"", "'")}</text>
-        </binding>
-    </visual>
-</toast>
-""@
-
-$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
-$xml.LoadXml($template)
-$toast = New-Object Windows.UI.Notifications.ToastNotification $xml
-[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('RF Media Link').Show($toast)
+            // Escape for PowerShell
+            var escapedTitle = title.Replace("'", "''").Replace("`", "``");
+            var escapedMessage = message.Replace("'", "''").Replace("`", "``");
+            var icon = isError ? "Error" : "Warning";
+            
+            // Use MessageBox with TopMost form via PowerShell - works from service context
+            // For tag not found, offer to launch configurator
+            var msgScript = $@"
+Add-Type -AssemblyName System.Windows.Forms
+$form = New-Object System.Windows.Forms.Form
+$form.TopMost = $true
+$form.Visible = $false
+$result = [System.Windows.Forms.MessageBox]::Show($form, '{escapedMessage}', '{escapedTitle}', 'YesNo', '{icon}')
+if ($result -eq 'Yes') {{
+    $configPath = Join-Path $env:ProgramData 'RFMediaLink\RFMediaLink.exe'
+    if (Test-Path $configPath) {{
+        Start-Process -FilePath $configPath
+    }}
+}}
+$form.Dispose()
 ";
+            
             var psi = new ProcessStartInfo
             {
                 FileName = "powershell.exe",
-                Arguments = $"-NoProfile -WindowStyle Hidden -Command \"{script.Replace("\"", "\"\"\"")}\"",
+                Arguments = $"-NoProfile -WindowStyle Hidden -Command \"{msgScript.Replace("\"", "`\"")}\"",
                 CreateNoWindow = true,
-                UseShellExecute = false
+                UseShellExecute = false,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true
             };
-            Process.Start(psi)?.Dispose();
+            var proc = Process.Start(psi);
+            if (proc != null)
+            {
+                proc.WaitForExit(5000); // Wait up to 5 seconds for user response
+                proc.Dispose();
+            }
         }
         catch
         {
@@ -671,7 +678,7 @@ $toast = New-Object Windows.UI.Notifications.ToastNotification $xml
         if (!foundInCatalog || entry == null)
         {
             _logger.LogWarning($"Tag not found in catalog: {uid}");
-            ShowNotification("Unknown Tag", $"Tag {uid} is not configured", true);
+            ShowNotification("Tag Not Found", $"Tag {uid} not in catalog.\n\nOpen Configure to add this tag?", false);
             return;
         }
 
