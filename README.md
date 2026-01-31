@@ -4,6 +4,8 @@
 
 **RF Media Link** is a Windows background application that launches media applications, files, and commands via RFID tags. Scan a tag to instantly launch your media player with the correct content, application with specific parameters, or execute custom commands. Perfect for media libraries and content management workflows.
 
+![RF Media Link in Action](images/rfmedialink_at_work.jpg)
+
 > **AI-Assisted Development Notice**
 > 
 > Hello, fellow human! My name is Aaron Smith. I've been in the IT field for nearly three decades and have extensive experience as both an engineer and architect. While I've had various projects in the past that have made their way into the public domain, I've always wanted to release more than I could. I write useful utilities all the time that aid me with my vintage computing and hobbyist electronic projects, but rarely publish them. I've had experience in both the public and private sectors and can unfortunately slip into treating each one of these as a fully polished cannonball ready for market. It leads to scope creep and never-ending updates to documentation.
