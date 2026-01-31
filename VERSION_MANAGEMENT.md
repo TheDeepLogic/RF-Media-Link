@@ -4,7 +4,7 @@
 
 The project version is controlled by a single file: **`VERSION`**
 
-This file contains just the version string (e.g., `1.0.1-alpha`)
+This file contains just the version string (e.g., `1.0.0` or `1.1.0-beta`)
 
 ## Where Version is Used
 

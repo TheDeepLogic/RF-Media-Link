@@ -1,6 +1,6 @@
 # RF Media Link - RFID Media Launcher
 
-**Version:** 0.9.0-dev (Pre-release)
+**Version:** 1.0.0
 
 **RF Media Link** is a Windows background application that launches emulators, applications, files, and commands via RFID tags. Scan a tag attached to your vintage disk, cartridge, or cassette to instantly launch the corresponding emulator with the correct disk image or ROM pre-loaded. Also supports launching media players, opening files, navigating to URLs, or executing custom commands. Perfect for retro computing libraries, media collections, and content management workflows.
 
@@ -28,7 +28,7 @@
 - **JSON Configuration**: Easy backup, version control, and manual editing
 - **Foreground Activation**: Launched applications automatically receive focus using ALT key simulation
 
-### Enhanced Management (v0.9.0-dev)
+### Enhanced Management
 - **Numbered Tag Selection**: Select tags by number instead of typing full UIDs
 - **Launch Tag Testing**: Test configured tags directly from configurator without scanning
 - **Backup & Restore System**: Automatic and manual backups to Documents\RFMediaLink\Backups with smart change detection
@@ -37,7 +37,7 @@
 - **Interactive Notifications**: MessageBox prompts for scan errors with option to launch configurator
 - **Emulator Management**: View and edit emulator definitions from configurator
 - **Auto-Reconnect**: Serial port automatically reconnects when RFID reader is unplugged/replugged
-- **Centralized Version Management**: Single VERSION file with semantic versioning (supports pre-release tags like `-dev`, `-alpha`, `-beta`)
+- **Centralized Version Management**: Single VERSION file with semantic versioning
 
 > **Reader Compatibility Note**
 > RF Media Link is built around a **custom serial RFID reader** for this project. See the parts list in [BOM.md](BOM.md) and the ESP32 serial firmware in [host_examples/esp32c3_rfid_reader_with_display.ino](host_examples/esp32c3_rfid_reader_with_display.ino). Most off‑the‑shelf HID/keyboard‑wedge readers will **not** work with the service.
