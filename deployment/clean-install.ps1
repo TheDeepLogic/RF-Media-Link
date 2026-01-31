@@ -15,7 +15,11 @@ Write-Host "[1/2] Uninstalling existing installation..." -ForegroundColor Yellow
 Write-Host ""
 if (Test-Path $uninstallScript) {
     & $uninstallScript
-    if ($LASTEXITCODE -ne 0) {
+    $uninstallExitCode = $LASTEXITCODE
+    if ($null -eq $uninstallExitCode) {
+        $uninstallExitCode = 0  # Assume success if exit code not set
+    }
+    if ($uninstallExitCode -ne 0) {
         Write-Host "Uninstall failed or was cancelled" -ForegroundColor Red
         pause
         exit 1
@@ -32,7 +36,11 @@ Write-Host "[2/2] Installing RF Media Link..." -ForegroundColor Yellow
 Write-Host ""
 if (Test-Path $installScript) {
     & $installScript
-    if ($LASTEXITCODE -ne 0) {
+    $installExitCode = $LASTEXITCODE
+    if ($null -eq $installExitCode) {
+        $installExitCode = 0  # Assume success if exit code not set
+    }
+    if ($installExitCode -ne 0) {
         Write-Host "Installation failed" -ForegroundColor Red
         pause
         exit 1

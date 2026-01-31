@@ -138,4 +138,4 @@ Write-Host "============================================" -ForegroundColor Green
 Write-Host "  Uninstall Complete!" -ForegroundColor Green
 Write-Host "============================================" -ForegroundColor Green
 
-pause
+exit 0
