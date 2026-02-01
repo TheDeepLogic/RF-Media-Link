@@ -1,6 +1,0 @@
-D:\OneDrive\Software\Vintage\_GitHub\RF-Media-Link\RFMediaLink\bin\Release\net8.0-windows\publish\RFMediaLink.exe
-D:\OneDrive\Software\Vintage\_GitHub\RF-Media-Link\RFMediaLink\bin\Release\net8.0-windows\publish\VERSION
-D:\OneDrive\Software\Vintage\_GitHub\RF-Media-Link\RFMediaLink\bin\Release\net8.0-windows\publish\RFMediaLink.dll
-D:\OneDrive\Software\Vintage\_GitHub\RF-Media-Link\RFMediaLink\bin\Release\net8.0-windows\publish\RFMediaLink.deps.json
-D:\OneDrive\Software\Vintage\_GitHub\RF-Media-Link\RFMediaLink\bin\Release\net8.0-windows\publish\RFMediaLink.runtimeconfig.json
-D:\OneDrive\Software\Vintage\_GitHub\RF-Media-Link\RFMediaLink\bin\Release\net8.0-windows\publish\RFMediaLink.pdb
