@@ -1,12 +1,10 @@
-![RF Media Link](images/rfmedialink_banner.png)
+![RF Media Link](images/rfmedialink_banner_retro.jpg)
 
 # RF Media Link - RFID Media Launcher
 
 **Version:** 1.0.0
 
 **RF Media Link** is a Windows background application that launches emulators, applications, files, and commands via RFID tags. Scan a tag attached to your vintage disk, cartridge, or cassette to instantly launch the corresponding emulator with the correct disk image or ROM pre-loaded. Also supports launching media players, opening files, navigating to URLs, or executing custom commands. Perfect for retro computing libraries, media collections, and content management workflows.
-
-![RF Media Link in Action](images/rfmedialink_at_work.jpg)
 
 > **AI-Assisted Development Notice**
 > 
