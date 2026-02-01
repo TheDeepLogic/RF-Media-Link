@@ -1,6 +1,6 @@
-# RF Media Link - RFID Media Launcher
+![RF Media Link](images/rfmedialink_banner.png)
 
-![RF Media Link in Action](images/rfmedialink_banner.png)
+# RF Media Link - RFID Media Launcher
 
 **Version:** 1.0.0
 
